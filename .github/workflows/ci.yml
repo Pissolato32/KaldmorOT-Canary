@@ -28,15 +28,15 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
-permissions:
-  contents: write
-  packages: write
 
 jobs:
   # --- Fast Checks ---
 
   checks:
     name: Fast Checks
+    permissions:
+      contents: write
+      packages: write
     if: github.event_name == 'push' || github.event.pull_request.draft == false
     uses: ./.github/workflows/reusable-checks.yml
     secrets: inherit

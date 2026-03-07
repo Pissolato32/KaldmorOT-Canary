@@ -10,6 +10,8 @@
 #pragma once
 
 #include "lua/scripts/luascript.hpp"
+#include <set>
+
 
 class Scripts {
 public:
@@ -22,14 +24,18 @@ public:
 	void clearAllScripts() const;
 
 	bool loadEventSchedulerScripts(const std::filesystem::path &filePath);
-	bool loadScripts(std::string_view folderName, bool isLib, bool reload);
+	bool loadScripts(std::string_view folderName, bool isLib, bool reload, bool prioritize = false);
+	void clearLoadedFiles();
+
 	LuaScriptInterface &getScriptInterface() {
 		return scriptInterface;
 	}
 
 private:
 	LuaScriptInterface scriptInterface;
+	std::set<std::string> loadedFiles;
 	Scripts();
+
 };
 
 constexpr auto g_scripts = Scripts::getInstance;
