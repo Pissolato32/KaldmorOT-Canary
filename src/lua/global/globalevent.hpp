@@ -45,7 +45,8 @@ public:
 	void clear();
 
 private:
-	GlobalEventMap thinkMap, serverMap, timerMap;
+	GlobalEventMap thinkMap, timerMap;
+	GlobalEventMap startupMap, shutdownMap, recordMap, periodChangeMap, onThinkMap, saveMap;
 	uint64_t thinkEventId = 0;
 	uint64_t timerEventId = 0;
 };
