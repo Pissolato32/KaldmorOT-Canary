@@ -9,8 +9,10 @@
 
 #pragma once
 
-// TODO: Remove circular includes (maybe shared_ptr?)
-#include "server/network/message/networkmessage.hpp"
+#include <algorithm>
+#include <cstdint>
+#include <memory>
+#include <vector>
 
 class PreySlot;
 class TaskHuntingSlot;
@@ -90,8 +92,6 @@ enum PreyTaskDifficult_t : uint8_t {
 	PreyTaskDifficult_First = PreyTaskDifficult_Easy,
 	PreyTaskDifficult_Last = PreyTaskDifficult_Hard
 };
-
-class NetworkMessage;
 
 class PreySlot {
 public:
@@ -217,7 +217,8 @@ static const std::unique_ptr<TaskHuntingOption> &TaskHuntingOptionNull {};
 
 class IOPrey {
 public:
-	IOPrey() = default;
+	IOPrey();
+	~IOPrey();
 
 	// non-copyable
 	IOPrey(const IOPrey &) = delete;
@@ -233,10 +234,12 @@ public:
 	void initializeTaskHuntOptions();
 	const std::unique_ptr<TaskHuntingOption> &getTaskRewardOption(const std::unique_ptr<TaskHuntingSlot> &slot) const;
 
-	NetworkMessage getTaskHuntingBaseDate() const;
+	const NetworkMessage &getTaskHuntingBaseDate() const;
 
-	NetworkMessage m_baseDataMessage;
 	std::vector<std::unique_ptr<TaskHuntingOption>> taskOption;
+
+private:
+	std::unique_ptr<NetworkMessage> m_baseDataMessage;
 };
 
 constexpr auto g_ioprey = IOPrey::getInstance;
