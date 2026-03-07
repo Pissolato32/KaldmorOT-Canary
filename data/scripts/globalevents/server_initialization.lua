@@ -32,10 +32,17 @@ end
 local function storeTownsInDatabase()
 	db.query("TRUNCATE TABLE `towns`")
 
-	for i, town in ipairs(Game.getTowns()) do
-		local position = town:getTemplePosition()
-		db.query("INSERT INTO `towns` (`id`, `name`, `posx`, `posy`, `posz`) VALUES (" .. town:getId() .. ", " .. db.escapeString(town:getName()) .. ", " .. position.x .. ", " .. position.y .. ", " .. position.z .. ")")
+	local towns = Game.getTowns()
+	if #towns == 0 then
+		return
 	end
+
+	local values = {}
+	for _, town in ipairs(towns) do
+		local position = town:getTemplePosition()
+		table.insert(values, "(" .. town:getId() .. ", " .. db.escapeString(town:getName()) .. ", " .. position.x .. ", " .. position.y .. ", " .. position.z .. ")")
+	end
+	db.query("INSERT INTO `towns` (`id`, `name`, `posx`, `posy`, `posz`) VALUES " .. table.concat(values, ", "))
 end
 
 -- Functions to recursively check for duplicate values in a given variable's storage and log the results
