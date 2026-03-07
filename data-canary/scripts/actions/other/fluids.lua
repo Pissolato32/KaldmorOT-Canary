@@ -38,6 +38,11 @@ function fluid.onUse(player, item, fromPosition, target, toPosition, isHotkey)
 		if target.type == 0 and item.type ~= 0 then
 			target:transform(target:getId(), item.type)
 			item:transform(item:getId(), 0)
+			local emptyBottle = player:getItemById(item:getId(), true)
+			if emptyBottle then
+				emptyBottle:remove()
+				player:getPosition():createItem(item:getId())
+			end
 			return true
 		elseif target.type ~= 0 and item.type == 0 then
 			target:transform(target:getId(), 0)
@@ -63,9 +68,19 @@ function fluid.onUse(player, item, fromPosition, target, toPosition, isHotkey)
 			end
 			player:say(fluidMessage[item.type] or "Gulp.", TALKTYPE_MONSTER_SAY)
 			item:transform(item:getId(), 0)
+			local emptyBottle = player:getItemById(item:getId(), true)
+			if emptyBottle then
+				emptyBottle:remove()
+				player:getPosition():createItem(item:getId())
+			end
 		else
 			Game.createItem(2886, item.type, toPosition):decay()
 			item:transform(item:getId(), 0)
+			local emptyBottle = player:getItemById(item:getId(), true)
+			if emptyBottle then
+				emptyBottle:remove()
+				player:getPosition():createItem(item:getId())
+			end
 		end
 	else
 		local fluidSource = targetItemType and targetItemType:getFluidSource() or 0
@@ -79,6 +94,11 @@ function fluid.onUse(player, item, fromPosition, target, toPosition, isHotkey)
 			end
 			Game.createItem(2886, item.type, toPosition):decay()
 			item:transform(item:getId(), 0)
+			local emptyBottle = player:getItemById(item:getId(), true)
+			if emptyBottle then
+				emptyBottle:remove()
+				player:getPosition():createItem(item:getId())
+			end
 		end
 	end
 

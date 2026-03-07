@@ -10,7 +10,8 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.head_ref }}      # ← adicionar isso
+          ref: ${{ github.event.pull_request.head.ref || github.ref }}
+          fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Git
