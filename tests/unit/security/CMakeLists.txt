@@ -1,4 +1,4 @@
 target_sources(
     canary_ut
-    PRIVATE rsa_test.cpp
+    PRIVATE argon_test.cpp rsa_test.cpp
 )
