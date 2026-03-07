@@ -23,39 +23,40 @@ AccountRepositoryDB::AccountRepositoryDB() {
 }
 
 bool AccountRepositoryDB::loadByID(const uint32_t &id, std::unique_ptr<AccountInfo> &acc) {
-	auto query = fmt::format("SELECT `id`, `type`, `premdays`, `lastday`, `creation`, `premdays_purchased`, 0 AS `expires` FROM `accounts` WHERE `id` = {}", id);
-	return load(query, acc);
+	auto query = "SELECT `id`, `type`, `premdays`, `lastday`, `creation`, `premdays_purchased`, 0 AS `expires` FROM `accounts` WHERE `id` = ?";
+	auto result = g_database().storeQuery(query, { id });
+	return load(result, acc);
 };
 
 bool AccountRepositoryDB::loadByEmailOrName(bool oldProtocol, const std::string &emailOrName, std::unique_ptr<AccountInfo> &acc) {
 	auto identifier = oldProtocol ? "name" : "email";
-	auto query = fmt::format("SELECT `id`, `type`, `premdays`, `lastday`, `creation`, `premdays_purchased`, 0 AS `expires` FROM `accounts` WHERE `{}` = {}", identifier, g_database().escapeString(emailOrName));
-	return load(query, acc);
+	auto query = fmt::format("SELECT `id`, `type`, `premdays`, `lastday`, `creation`, `premdays_purchased`, 0 AS `expires` FROM `accounts` WHERE `{}` = ?", identifier);
+	auto result = g_database().storeQuery(query, { emailOrName });
+	return load(result, acc);
 };
 
 bool AccountRepositoryDB::loadBySession(const std::string &sessionKey, std::unique_ptr<AccountInfo> &acc) {
-	auto query = fmt::format(
+	auto query =
 		"SELECT `accounts`.`id`, `type`, `premdays`, `lastday`, `creation`, `premdays_purchased`, `account_sessions`.`expires` "
 		"FROM `accounts` "
 		"INNER JOIN `account_sessions` ON `account_sessions`.`account_id` = `accounts`.`id` "
-		"WHERE `account_sessions`.`id` = {}",
-		g_database().escapeString(transformToSHA1(sessionKey))
-	);
-	return load(query, acc);
+		"WHERE `account_sessions`.`id` = ?";
+	auto result = g_database().storeQuery(query, { transformToSHA1(sessionKey) });
+	return load(result, acc);
 };
 
 bool AccountRepositoryDB::save(const std::unique_ptr<AccountInfo> &accInfo) {
 	bool successful = g_database().executeQuery(
-		fmt::format(
-			"UPDATE `accounts` SET `type` = {}, `premdays` = {}, `lastday` = {}, `creation` = {}, `premdays_purchased` = {}, `house_bid_id` = {} WHERE `id` = {}",
-			accInfo->accountType,
+		"UPDATE `accounts` SET `type` = ?, `premdays` = ?, `lastday` = ?, `creation` = ?, `premdays_purchased` = ?, `house_bid_id` = ? WHERE `id` = ?",
+		{
+			static_cast<uint32_t>(accInfo->accountType),
 			accInfo->premiumRemainingDays,
-			accInfo->premiumLastDay,
+			static_cast<uint64_t>(accInfo->premiumLastDay),
 			accInfo->creationTime,
 			accInfo->premiumDaysPurchased,
 			accInfo->houseBidId,
 			accInfo->id
-		)
+		}
 	);
 
 	if (!successful) {
@@ -66,7 +67,7 @@ bool AccountRepositoryDB::save(const std::unique_ptr<AccountInfo> &accInfo) {
 };
 
 bool AccountRepositoryDB::getCharacterByAccountIdAndName(const uint32_t &id, const std::string &name) {
-	auto result = g_database().storeQuery(fmt::format("SELECT `id` FROM `players` WHERE `account_id` = {} AND `name` = {}", id, g_database().escapeString(name)));
+	auto result = g_database().storeQuery("SELECT `id` FROM `players` WHERE `account_id` = ? AND `name` = ?", { id, name });
 	if (!result) {
 		g_logger().error("Failed to get character: [{}] from account: [{}]!", name, id);
 		return false;
@@ -76,7 +77,7 @@ bool AccountRepositoryDB::getCharacterByAccountIdAndName(const uint32_t &id, con
 }
 
 bool AccountRepositoryDB::getPassword(const uint32_t &id, std::string &password) {
-	auto result = g_database().storeQuery(fmt::format("SELECT `password` FROM `accounts` WHERE `id` = {}", id));
+	auto result = g_database().storeQuery("SELECT `password` FROM `accounts` WHERE `id` = ?", { id });
 	if (!result) {
 		g_logger().error("Failed to get account:[{}] password!", id);
 		return false;
@@ -95,11 +96,10 @@ bool AccountRepositoryDB::getCoins(const uint32_t &id, CoinType coinType, uint32
 
 	auto column = it->second;
 
-	const auto result = g_database().storeQuery(fmt::format(
-		"SELECT `{}` FROM `accounts` WHERE `id` = {}",
-		column,
-		id
-	));
+	const auto result = g_database().storeQuery(
+		fmt::format("SELECT `{}` FROM `accounts` WHERE `id` = ?", column),
+		{ id }
+	);
 
 	if (!result) {
 		return false;
@@ -119,12 +119,10 @@ bool AccountRepositoryDB::setCoins(const uint32_t &id, CoinType coinType, const 
 
 	auto column = it->second;
 
-	const bool successful = g_database().executeQuery(fmt::format(
-		"UPDATE `accounts` SET `{}` = {} WHERE `id` = {}",
-		column,
-		amount,
-		id
-	));
+	const bool successful = g_database().executeQuery(
+		fmt::format("UPDATE `accounts` SET `{}` = ? WHERE `id` = ?", column),
+		{ amount, id }
+	);
 
 	if (!successful) {
 		g_logger().error("Error setting account[{}] coins to [{}]", id, amount);
@@ -141,24 +139,18 @@ bool AccountRepositoryDB::registerCoinsTransaction(
 	const std::string &description
 ) {
 	bool successful = g_database().executeQuery(
-		fmt::format(
-			"INSERT INTO `coins_transactions` (`account_id`, `type`, `coin_type`, `amount`, `description`) VALUES ({}, {}, {}, {}, {})",
-			id,
-			type,
-			coinType,
-			coins,
-			g_database().escapeString(description)
-		)
+		"INSERT INTO `coins_transactions` (`account_id`, `type`, `coin_type`, `amount`, `description`) VALUES (?, ?, ?, ?, ?)",
+		{ id, static_cast<uint32_t>(type), static_cast<uint32_t>(coinType), coins, description }
 	);
 
 	if (!successful) {
 		g_logger().error(
 			"Error registering coin transaction! account_id:[{}], type:[{}], coin_type:[{}], coins:[{}], description:[{}]",
 			id,
-			type,
-			coinType,
+			static_cast<uint32_t>(type),
+			static_cast<uint32_t>(coinType),
 			coins,
-			g_database().escapeString(description)
+			description
 		);
 	}
 
@@ -167,7 +159,8 @@ bool AccountRepositoryDB::registerCoinsTransaction(
 
 bool AccountRepositoryDB::loadAccountPlayers(std::unique_ptr<AccountInfo> &acc) const {
 	auto result = g_database().storeQuery(
-		fmt::format("SELECT `name`, `deletion` FROM `players` WHERE `account_id` = {} ORDER BY `name` ASC", acc->id)
+		"SELECT `name`, `deletion` FROM `players` WHERE `account_id` = ? ORDER BY `name` ASC",
+		{ acc->id }
 	);
 
 	if (!result) {
@@ -186,9 +179,7 @@ bool AccountRepositoryDB::loadAccountPlayers(std::unique_ptr<AccountInfo> &acc) 
 	return true;
 }
 
-bool AccountRepositoryDB::load(const std::string &query, std::unique_ptr<AccountInfo> &acc) {
-	auto result = g_database().storeQuery(query);
-
+bool AccountRepositoryDB::load(const DBResult_ptr &result, std::unique_ptr<AccountInfo> &acc) {
 	if (result == nullptr) {
 		return false;
 	}
