@@ -10,6 +10,8 @@
 #pragma once
 
 class Argon2 {
+	friend class Argon2Test;
+
 public:
 	Argon2();
 	~Argon2() = default;
