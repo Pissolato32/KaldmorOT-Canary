@@ -7,14 +7,19 @@
  * Website: https://docs.opentibiabr.com/
  */
 
+#include "test_pch.hpp"
+
+#include "lib/di/container.hpp"
 #include "lib/logging/in_memory_logger.hpp"
+#include "lib/logging/logger.hpp"
 #include "security/argon.hpp"
 
 class Argon2Test : public ::testing::Test {
 protected:
 	static void SetUpTestSuite() {
 		previousContainer = DI::getTestContainer();
-		DI::setTestContainer(&InMemoryLogger::install(injector));
+		InMemoryLogger::install(injector);
+		DI::setTestContainer(&injector);
 		logger = &dynamic_cast<InMemoryLogger &>(DI::get<Logger>());
 	}
 
@@ -23,7 +28,7 @@ protected:
 	}
 
 	void SetUp() override {
-		logger = &logger->reset();
+		logger->reset();
 	}
 
 	static InMemoryLogger &testLogger() {
@@ -56,7 +61,7 @@ TEST_F(Argon2Test, ParseBitShift_InvalidFormats) {
 	EXPECT_EQ(parseBitShift("<< 12"), 0u);
 	EXPECT_EQ(parseBitShift("invalid"), 0u);
 	EXPECT_EQ(parseBitShift("1 << 12 << 1"), 0u);
-	EXPECT_EQ(parseBitShift("1 << -1"), 0u); // Regex only matches digits \d+
+	EXPECT_EQ(parseBitShift("1 << -1"), 0u);
 
 	auto &logger = testLogger();
 	EXPECT_FALSE(logger.logs.empty());
