@@ -31,8 +31,13 @@ void GlobalEvents::clear() {
 
 	// Clear maps
 	thinkMap.clear();
-	serverMap.clear();
 	timerMap.clear();
+	startupMap.clear();
+	shutdownMap.clear();
+	recordMap.clear();
+	periodChangeMap.clear();
+	onThinkMap.clear();
+	saveMap.clear();
 }
 
 bool GlobalEvents::registerLuaEvent(const std::shared_ptr<GlobalEvent> &globalEvent) {
@@ -46,12 +51,37 @@ bool GlobalEvents::registerLuaEvent(const std::shared_ptr<GlobalEvent> &globalEv
 			}
 			return true;
 		}
-	} else if (globalEvent->getEventType() != GLOBALEVENT_NONE) {
-		const auto result = serverMap.emplace(globalEvent->getName(), globalEvent);
+	} else if (globalEvent->getEventType() == GLOBALEVENT_STARTUP) {
+		const auto result = startupMap.emplace(globalEvent->getName(), globalEvent);
 		if (result.second) {
 			return true;
 		}
-	} else { // think event
+	} else if (globalEvent->getEventType() == GLOBALEVENT_SHUTDOWN) {
+		const auto result = shutdownMap.emplace(globalEvent->getName(), globalEvent);
+		if (result.second) {
+			return true;
+		}
+	} else if (globalEvent->getEventType() == GLOBALEVENT_RECORD) {
+		const auto result = recordMap.emplace(globalEvent->getName(), globalEvent);
+		if (result.second) {
+			return true;
+		}
+	} else if (globalEvent->getEventType() == GLOBALEVENT_PERIODCHANGE) {
+		const auto result = periodChangeMap.emplace(globalEvent->getName(), globalEvent);
+		if (result.second) {
+			return true;
+		}
+	} else if (globalEvent->getEventType() == GLOBALEVENT_SAVE) {
+		const auto result = saveMap.emplace(globalEvent->getName(), globalEvent);
+		if (result.second) {
+			return true;
+		}
+	} else if (globalEvent->getEventType() == GLOBALEVENT_ON_THINK) {
+		const auto result = onThinkMap.emplace(globalEvent->getName(), globalEvent);
+		if (result.second) {
+			return true;
+		}
+	} else if (globalEvent->getEventType() == GLOBALEVENT_NONE) { // think event
 		const auto result = thinkMap.emplace(globalEvent->getName(), globalEvent);
 		if (result.second) {
 			if (thinkEventId == 0) {
@@ -158,35 +188,72 @@ void GlobalEvents::think() {
 }
 
 void GlobalEvents::execute(GlobalEvent_t type) const {
-	for (const auto &[globalEventName, globalEvent] : serverMap) {
-		if (globalEvent->getEventType() == type) {
-			globalEvent->executeEvent();
-		}
+	switch (type) {
+		case GLOBALEVENT_STARTUP:
+			for (const auto &it : startupMap) {
+				it.second->executeEvent();
+			}
+			break;
+		case GLOBALEVENT_SHUTDOWN:
+			for (const auto &it : shutdownMap) {
+				it.second->executeEvent();
+			}
+			break;
+		case GLOBALEVENT_SAVE:
+			for (const auto &it : saveMap) {
+				it.second->executeEvent();
+			}
+			break;
+		case GLOBALEVENT_RECORD:
+			for (const auto &it : recordMap) {
+				it.second->executeEvent();
+			}
+			break;
+		case GLOBALEVENT_PERIODCHANGE:
+			for (const auto &it : periodChangeMap) {
+				it.second->executeEvent();
+			}
+			break;
+		case GLOBALEVENT_ON_THINK:
+			for (const auto &it : onThinkMap) {
+				it.second->executeEvent();
+			}
+			break;
+		case GLOBALEVENT_NONE:
+			for (const auto &it : thinkMap) {
+				it.second->executeEvent();
+			}
+			break;
+		case GLOBALEVENT_TIMER:
+			for (const auto &it : timerMap) {
+				it.second->executeEvent();
+			}
+			break;
+		default:
+			break;
 	}
 }
 
 GlobalEventMap GlobalEvents::getEventMap(GlobalEvent_t type) {
-	// TODO: This should be better implemented. Maybe have a map for every type.
 	switch (type) {
 		case GLOBALEVENT_NONE:
 			return thinkMap;
+		case GLOBALEVENT_ON_THINK:
+			return onThinkMap;
 		case GLOBALEVENT_TIMER:
 			return timerMap;
-		case GLOBALEVENT_PERIODCHANGE:
 		case GLOBALEVENT_STARTUP:
+			return startupMap;
 		case GLOBALEVENT_SHUTDOWN:
+			return shutdownMap;
 		case GLOBALEVENT_RECORD:
-		case GLOBALEVENT_SAVE: {
-			GlobalEventMap retMap;
-			for (const auto &it : serverMap) {
-				if (it.second->getEventType() == type) {
-					retMap.emplace(it.first, it.second);
-				}
-			}
-			return retMap;
-		}
+			return recordMap;
+		case GLOBALEVENT_PERIODCHANGE:
+			return periodChangeMap;
+		case GLOBALEVENT_SAVE:
+			return saveMap;
 		default:
-			return GlobalEventMap();
+			return {};
 	}
 }
 
