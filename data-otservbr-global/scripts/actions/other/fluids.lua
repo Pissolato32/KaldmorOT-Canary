@@ -94,6 +94,11 @@ function fluid.onUse(player, item, fromPosition, target, toPosition, isHotkey)
 		if target.type == 0 and item.type ~= 0 then
 			target:transform(target.itemid, item.type)
 			item:transform(item.itemid, 0)
+			local emptyBottle = player:getItemById(item.itemid, true)
+			if emptyBottle then
+				emptyBottle:remove()
+				player:getPosition():createItem(item.itemid)
+			end
 			return true
 		elseif target.type ~= 0 and item.type == 0 then
 			item:transform(item.itemid, target.type)
@@ -108,6 +113,11 @@ function fluid.onUse(player, item, fromPosition, target, toPosition, isHotkey)
 			toPosition:sendMagicEffect(CONST_ME_WATERSPLASH)
 			target:transform(target.itemid + 1)
 			item:transform(item.itemid, 0)
+			local emptyBottle = player:getItemById(item.itemid, true)
+			if emptyBottle then
+				emptyBottle:remove()
+				player:getPosition():createItem(item.itemid)
+			end
 		else
 			player:sendTextMessage(MESSAGE_FAILURE, "You need water.")
 		end
@@ -137,6 +147,11 @@ function fluid.onUse(player, item, fromPosition, target, toPosition, isHotkey)
 
 			player:say(fluidMessage[item.type] or "Gulp.", TALKTYPE_MONSTER_SAY)
 			item:transform(item.itemid, 0)
+			local emptyBottle = player:getItemById(item.itemid, true)
+			if emptyBottle then
+				emptyBottle:remove()
+				player:getPosition():createItem(item.itemid)
+			end
 		else
 			local pool = Game.createItem(2886, item.type, toPosition)
 			if pool then
@@ -146,6 +161,11 @@ function fluid.onUse(player, item, fromPosition, target, toPosition, isHotkey)
 				end
 			end
 			item:transform(item.itemid, 0)
+			local emptyBottle = player:getItemById(item.itemid, true)
+			if emptyBottle then
+				emptyBottle:remove()
+				player:getPosition():createItem(item.itemid)
+			end
 		end
 	else
 		local fluidSource = targetType:getFluidSource()
@@ -182,6 +202,11 @@ function fluid.onUse(player, item, fromPosition, target, toPosition, isHotkey)
 				end
 			end
 			item:transform(item.itemid, 0)
+			local emptyBottle = player:getItemById(item.itemid, true)
+			if emptyBottle then
+				emptyBottle:remove()
+				player:getPosition():createItem(item.itemid)
+			end
 		end
 	end
 
