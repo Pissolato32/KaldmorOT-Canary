@@ -117,21 +117,7 @@ bool PlayerBadge::loyalty(uint8_t amount) const {
 }
 
 std::vector<std::shared_ptr<Player>> PlayerBadge::getPlayersInfoByAccount(const std::shared_ptr<Account> &acc) const {
-	const auto [accountPlayers, error] = acc->getAccountPlayers();
-	if (error != AccountErrors_t::Ok || accountPlayers.empty()) {
-		return {};
-	}
-
-	std::string namesList;
-	for (const auto &[name, _] : accountPlayers) {
-		if (!namesList.empty()) {
-			namesList += ", ";
-		}
-		std::string escapedName = g_database().escapeString(name);
-		namesList += fmt::format("{}", escapedName);
-	}
-
-	auto query = fmt::format("SELECT name, level, vocation FROM players WHERE name IN ({})", namesList);
+	auto query = fmt::format("SELECT name, level, vocation FROM players WHERE account_id = {} AND deletion = 0", acc->getID());
 	std::vector<std::shared_ptr<Player>> players;
 	DBResult_ptr result = g_database().storeQuery(query);
 	if (result) {
