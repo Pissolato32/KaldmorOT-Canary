@@ -14,7 +14,10 @@
 	#include <string>
 	#include <utility>
 	#include <cstdint>
+	#include <limits>
 #endif
+
+static constexpr uint32_t OFFLINE_TRAINING_WINDOW_ID = std::numeric_limits<uint32_t>::max();
 
 struct ModalWindow {
 	std::list<std::pair<std::string, uint8_t>> buttons, choices;
