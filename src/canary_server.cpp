@@ -390,10 +390,13 @@ void CanaryServer::loadModules() {
 
 	const auto datapackFolder = g_configManager().getString(DATA_DIRECTORY);
 	logger.debug("Loading core scripts on folder: {}/", coreFolder);
-	// Load first core Lua libs
-	modulesLoadHelper((g_luaEnvironment().loadFile(coreFolder + "/core.lua", "core.lua") == 0), "core.lua");
-	modulesLoadHelper(g_scripts().loadScripts(coreFolder + "/scripts/lib", true, false), coreFolder + "/scripts/libs");
-	modulesLoadHelper(g_scripts().loadScripts(coreFolder + "/scripts", false, false), coreFolder + "/scripts");
+	// Load scripts from dataPack and data
+	const auto &datapackFolder = g_configManager().getString(DATA_DIRECTORY);
+	const auto &coreFolder = g_configManager().getString(CORE_DIRECTORY);
+
+	modulesLoadHelper(g_scripts().loadScripts(datapackFolder + "/scripts", false, false, true), "Loading scripts from datapak", logType);
+	modulesLoadHelper(g_scripts().loadScripts(coreFolder + "/scripts", false, false, false), "Loading scripts from core", logType);
+
 	modulesLoadHelper((g_npcs().load(true, false)), "npclib");
 
 	modulesLoadHelper(g_events().loadFromXml(), "events/events.xml");

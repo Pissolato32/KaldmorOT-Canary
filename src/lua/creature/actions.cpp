@@ -48,16 +48,10 @@ bool Actions::registerLuaItemEvent(const std::shared_ptr<Action> &action) {
 	for (const auto &itemId : itemIdVector) {
 		// Check if the item is already registered and prevent it from being registered again
 		if (hasItemId(itemId)) {
-			g_logger().warn(
-				"[{}] - Duplicate "
-				"registered item with id: {} in range from id: {}, to id: {}, for script: {}",
-				__FUNCTION__,
-				itemId,
-				itemIdVector.at(0),
-				itemIdVector.at(itemIdVector.size() - 1),
-				action->getScriptInterface()->getLoadingScriptName()
-			);
-			continue;
+			if (g_configManager().getBoolean(SCRIPTS_CONSOLE_LOGS)) {
+				g_logger().warn("[Actions::registerLuaItemEvent] - Duplicate registration for item ID: {}. Ignoring registration from script: {}", itemId, action->getScriptInterface()->getLoadingFile());
+			}
+			return false;
 		}
 
 		// Register item in the action item map

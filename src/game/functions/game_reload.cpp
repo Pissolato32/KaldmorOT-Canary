@@ -190,8 +190,10 @@ bool GameReload::reloadScripts() {
 	const auto &coreFolder = g_configManager().getString(CORE_DIRECTORY);
 
 	g_scripts().loadScripts(coreFolder + "/scripts/lib", true, false);
-	g_scripts().loadScripts(datapackFolder + "/scripts", false, true);
-	g_scripts().loadScripts(coreFolder + "/scripts", false, true);
+	g_scripts().clearLoadedFiles();
+	g_scripts().loadScripts(datapackFolder + "/scripts", false, true, true);
+	g_scripts().loadScripts(coreFolder + "/scripts", false, true, false);
+
 
 	// It should come last, after everything else has been cleaned up.
 	reloadMonsters();
