@@ -99,6 +99,7 @@ constexpr auto g_database = Database::getInstance;
 class DBResult {
 public:
 	explicit DBResult(MYSQL_RES* res);
+	explicit DBResult(MYSQL_RES* res, MYSQL_STMT* stmt);
 	~DBResult();
 
 	// Non copyable
@@ -195,8 +196,9 @@ public:
 	bool next();
 
 private:
-	MYSQL_RES* handle;
-	MYSQL_ROW row;
+	MYSQL_RES* handle = nullptr;
+	MYSQL_STMT* stmtHandle = nullptr;
+	MYSQL_ROW row = nullptr;
 
 	std::map<std::string_view, size_t> listNames;
 
