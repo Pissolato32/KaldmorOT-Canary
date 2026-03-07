@@ -15,9 +15,10 @@
 	#include <mysql/mysql.h>
 	#include <mutex>
 	#include <utility>
-	#include <variant>
-	#include <vector>
 #endif
+
+#include <variant>
+#include <vector>
 
 class DBResult;
 using DBResult_ptr = std::shared_ptr<DBResult>;
@@ -262,7 +263,7 @@ public:
 	}
 
 private:
-	bool bindParameters(MYSQL_STMT* stmt, const std::vector<QueryParamVariant> &params);
+	bool bindParameters(MYSQL_STMT* stmt, const std::vector<QueryParamVariant> &params, std::vector<MYSQL_BIND> &binds);
 	bool begin() {
 		// Ensure that the transaction has not already been started
 		if (state != STATE_NO_START) {

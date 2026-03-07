@@ -278,8 +278,8 @@ retry:
 	return nullptr;
 }
 
-bool Database::bindParameters(MYSQL_STMT* stmt, const std::vector<QueryParamVariant> &params) {
-	std::vector<MYSQL_BIND> binds(params.size());
+bool Database::bindParameters(MYSQL_STMT* stmt, const std::vector<QueryParamVariant> &params, std::vector<MYSQL_BIND> &binds) {
+	binds.resize(params.size());
 	std::memset(binds.data(), 0, sizeof(MYSQL_BIND) * params.size());
 
 	for (size_t i = 0; i < params.size(); ++i) {
@@ -345,7 +345,8 @@ bool Database::executeQuery(std::string_view query, const std::vector<QueryParam
 		return false;
 	}
 
-	if (!bindParameters(stmt, params)) {
+	std::vector<MYSQL_BIND> binds;
+	if (!bindParameters(stmt, params, binds)) {
 		mysql_stmt_close(stmt);
 		return false;
 	}
@@ -384,7 +385,8 @@ DBResult_ptr Database::storeQuery(std::string_view query, const std::vector<Quer
 		return nullptr;
 	}
 
-	if (!bindParameters(stmt, params)) {
+	std::vector<MYSQL_BIND> binds;
+	if (!bindParameters(stmt, params, binds)) {
 		mysql_stmt_close(stmt);
 		return nullptr;
 	}
