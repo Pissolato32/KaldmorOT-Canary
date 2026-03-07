@@ -24,8 +24,10 @@
 
 std::vector<PlayerStorageRow> DbPlayerStorageRepository::load(uint32_t id) {
 	std::vector<PlayerStorageRow> out;
-	auto query = fmt::format("SELECT `key`,`value` FROM `player_storage` WHERE `player_id`={}", id);
-	if (auto result = Database::getInstance().storeQuery(query)) {
+	if (auto result = Database::getInstance().storeQuery(
+			"SELECT `key`, `value` FROM `player_storage` WHERE `player_id` = ?",
+			{ id }
+		)) {
 		do {
 			out.push_back({ result->getNumber<uint32_t>("key"), result->getNumber<int32_t>("value") });
 		} while (result->next());
