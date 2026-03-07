@@ -57,7 +57,7 @@ local function leaveExerciseTraining(playerId, targetItem)
 	return
 end
 
-local function exerciseTrainingEvent(playerId, tilePosition, weaponId, dummyId)
+local function exerciseTrainingEvent(playerId, tilePosition, weaponId, dummyId, weaponUid)
 	local player = Player(playerId)
 	if not player then
 		return leaveExerciseTraining(playerId)
@@ -88,7 +88,10 @@ local function exerciseTrainingEvent(playerId, tilePosition, weaponId, dummyId)
 		return false
 	end
 
-	local weapon = player:getItemById(weaponId, true)
+	local weapon = Item(weaponUid)
+	if not weapon then
+		weapon = player:getItemById(weaponId, true)
+	end
 	if not weapon:isItem() or not weapon:hasAttribute(ITEM_ATTRIBUTE_CHARGES) then
 		player:sendTextMessage(MESSAGE_FAILURE, "The selected item is not a training weapon, the training has stopped.")
 		leaveExerciseTraining(playerId, targetItem)
@@ -137,7 +140,7 @@ local function exerciseTrainingEvent(playerId, tilePosition, weaponId, dummyId)
 	end
 
 	local vocation = player:getVocation()
-	_G.OnExerciseTraining[playerId].event = addEvent(exerciseTrainingEvent, (vocation:getBaseAttackSpeed() / configManager.getFloat(configKeys.RATE_EXERCISE_TRAINING_SPEED)) * eventSpeedMultiplier, playerId, tilePosition, weaponId, dummyId)
+	_G.OnExerciseTraining[playerId].event = addEvent(exerciseTrainingEvent, (vocation:getBaseAttackSpeed() / configManager.getFloat(configKeys.RATE_EXERCISE_TRAINING_SPEED)) * eventSpeedMultiplier, playerId, tilePosition, weaponId, dummyId, weaponUid)
 	return true
 end
 
@@ -203,7 +206,7 @@ function exerciseTraining.onUse(player, item, fromPosition, target, toPosition, 
 
 		_G.OnExerciseTraining[playerId] = {}
 		if not _G.OnExerciseTraining[playerId].event then
-			_G.OnExerciseTraining[playerId].event = addEvent(exerciseTrainingEvent, 0, playerId, targetPos, item.itemid, targetId)
+			_G.OnExerciseTraining[playerId].event = addEvent(exerciseTrainingEvent, 0, playerId, targetPos, item.itemid, targetId, item.uid)
 			_G.OnExerciseTraining[playerId].dummyPos = targetPos
 			targetItem:actor(true)
 			player:setTraining(true)
