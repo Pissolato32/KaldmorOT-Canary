@@ -42,6 +42,11 @@ void Scripts::clearAllScripts() const {
 	g_monsters().clear();
 }
 
+void Scripts::clearLoadedFiles() {
+	loadedFiles.clear();
+}
+
+
 bool Scripts::loadEventSchedulerScripts(const std::filesystem::path &filePath) {
 	if (!std::filesystem::exists(filePath) || !std::filesystem::is_regular_file(filePath)) {
 		g_logger().warn("{} - Cannot load file '{}'", __FUNCTION__, filePath.string());
@@ -60,7 +65,8 @@ bool Scripts::loadEventSchedulerScripts(const std::filesystem::path &filePath) {
 	return false;
 }
 
-bool Scripts::loadScripts(std::string_view folderName, bool isLib, bool reload) {
+bool Scripts::loadScripts(std::string_view folderName, bool isLib, bool reload, bool prioritize /* = false*/) {
+
 	const auto dir = std::filesystem::current_path() / folderName;
 
 	// Checks if the folder exists and is really a folder
@@ -92,6 +98,9 @@ bool Scripts::loadScripts(std::string_view folderName, bool isLib, bool reload) 
 			continue;
 		}
 
+		// Calculate relative path within the base folder for overlay resolution
+		std::string relativePath = std::filesystem::relative(realPath, dir).string();
+
 		// Check if file start with "#"
 		if (std::string disable("#");
 		    file.front() == disable.front()) {
@@ -101,6 +110,19 @@ bool Scripts::loadScripts(std::string_view folderName, bool isLib, bool reload) 
 			}
 			// Skip for next loop and ignore disabled file
 			continue;
+		}
+
+		// Overlay logic: If prioritize is false (core), check if we already loaded this relative path from datapack
+		if (!prioritize) {
+			if (loadedFiles.contains(relativePath)) {
+				if (g_configManager().getBoolean(SCRIPTS_CONSOLE_LOGS)) {
+					g_logger().info("[Overlay] Skipping core fallback: {}", relativePath);
+				}
+				continue;
+			}
+		} else {
+			// If prioritize is true (datapack), track this file to block the core version later
+			loadedFiles.insert(relativePath);
 		}
 
 		// If the file is a library file or if the file's parent directory is not "lib" or "events"
@@ -123,6 +145,7 @@ bool Scripts::loadScripts(std::string_view folderName, bool isLib, bool reload) 
 				continue;
 			}
 		}
+
 
 		if (g_configManager().getBoolean(SCRIPTS_CONSOLE_LOGS)) {
 			if (!reload) {
