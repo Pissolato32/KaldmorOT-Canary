@@ -35,6 +35,10 @@ jobs:
       discussions: write
       actions: read
 
+    env:
+      NEEP_HOST: ${{ secrets.NEEP_HOST }}
+      NEEP_PASS: ${{ secrets.NEEP_PASS }}
+
     steps:
       # ---------------------------------------------------------
       # Authenticate gh
@@ -182,9 +186,9 @@ jobs:
       - name: Upload to server
         uses: appleboy/scp-action@ff85246acaad7bdce478db94a363cd2bf7c90345
         with:
-          host: ${{ secrets.NEEP_HOST }}
+          host: ${{ env.NEEP_HOST }}
           username: root
-          password: ${{ secrets.NEEP_PASS }}
+          password: ${{ env.NEEP_PASS }}
           source: "deploy/canary"
           target: "/opt/canary-next-deploy"
 
@@ -195,9 +199,9 @@ jobs:
         id: remote
         uses: appleboy/ssh-action@91f3272fc5907f4699dcf59761eb622a07342f5a
         with:
-          host: ${{ secrets.NEEP_HOST }}
+          host: ${{ env.NEEP_HOST }}
           username: root
-          password: ${{ secrets.NEEP_PASS }}
+          password: ${{ env.NEEP_PASS }}
           timeout: 300s
           command_timeout: 20m
           script: |
