@@ -40,4 +40,4 @@ jobs:
           mysql -e "SHOW DATABASES" -uroot -proot
       - name: Import Canary Schema
         run: |
-          mysql -uroot -proot canary < schema.sql
+          mysql -uroot -proot canary < schema.sql -v
