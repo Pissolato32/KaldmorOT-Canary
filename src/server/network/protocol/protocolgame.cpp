@@ -5336,16 +5336,10 @@ void ProtocolGame::sendCoinBalance() {
 		return;
 	}
 
-	// send is updating
-	// TODO: export this to it own function
-	NetworkMessage msg;
-	msg.addByte(0xF2);
-	msg.addByte(0x01);
-	writeToOutputBuffer(msg);
-
-	msg.reset();
+	sendCoinBalanceUpdating();
 
 	// send update
+	NetworkMessage msg;
 	msg.addByte(0xDF);
 	msg.addByte(0x01);
 
@@ -5359,10 +5353,23 @@ void ProtocolGame::sendCoinBalance() {
 	writeToOutputBuffer(msg);
 }
 
+void ProtocolGame::sendCoinBalanceUpdating() {
+	if (!player) {
+		return;
+	}
+
+	NetworkMessage msg;
+	msg.addByte(0xF2);
+	msg.addByte(0x01);
+	writeToOutputBuffer(msg);
+}
+
 void ProtocolGame::updateCoinBalance() {
 	if (!player) {
 		return;
 	}
+
+	sendCoinBalanceUpdating();
 
 	g_dispatcher().addEvent(
 		[playerId = player->getID()] {
