@@ -424,6 +424,7 @@ private:
 	void sendUseItemCooldown(uint32_t time);
 
 	void sendCoinBalance();
+	void sendCoinBalanceUpdating();
 
 	void sendPreyTimeLeft(const std::unique_ptr<PreySlot> &slot);
 	void sendPreyData(const std::unique_ptr<PreySlot> &slot);
