@@ -53,6 +53,22 @@ services:
       database:
         condition: service_healthy
 
+  phpmyadmin:
+    image: phpmyadmin:latest
+    restart: unless-stopped
+    ports:
+      - '8080:80'
+    environment:
+      - PMA_ARBITRARY=1
+      - PMA_HOST=database
+      - PMA_USER=root
+      - PMA_PASSWORD=$MYSQL_ROOT_PASSWORD
+    networks:
+      - canary-net
+    depends_on:
+      database:
+        condition: service_healthy
+
 volumes:
   db-volume:
 
