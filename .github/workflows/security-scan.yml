@@ -1,0 +1,36 @@
+name: Security Scan (SQL Injection Regressions)
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  schedule:
+    - cron: '0 0 * * 0' # Weekly at midnight UTC (Sunday 21:00 BRT)
+
+jobs:
+  sql-security-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Audit for SQL Injection Regressions
+        run: |
+          echo "Scanning for manual query formatting using fmt::format or ostringstream in sensitive directories..."
+          
+          # This command searches for common formatting patterns in files containing DML keywords.
+          # We focus on src/io, src/creatures, and src/map where data persistence logic lives.
+          # We exclude lines that are commented out to avoid false positives.
+          RESULTS=$(grep -rnE "fmt::format|ostringstream" src/io src/creatures src/map --include="*.cpp" | \
+            grep -iE "SELECT|INSERT|UPDATE|DELETE" | \
+            grep -vE "//.*(SELECT|INSERT|UPDATE|DELETE)" \
+            || true)
+          
+          if [ -n "$RESULTS" ]; then
+            echo "::error::Found potential SQL Injection regression patterns!"
+            echo "$RESULTS"
+            exit 1
+          else
+            echo "Success: No manual SQL query formatting patterns found."
+          fi
