@@ -549,10 +549,24 @@ bool IOLoginDataSave::savePlayerPreyClass(const std::shared_ptr<Player> &player)
 		return false;
 	}
 
-	Database &db = Database::getInstance();
 	if (g_configManager().getBoolean(PREY_ENABLED)) {
+		DBInsert preyQuery("INSERT INTO `player_prey` (`player_id`, `slot`, `state`, `raceid`, `option`, `bonus_type`, `bonus_rarity`, `bonus_percentage`, `bonus_time`, `free_reroll`, `monster_list`) VALUES ");
+		preyQuery.upsert({ "state", "raceid", "option", "bonus_type", "bonus_rarity", "bonus_percentage", "bonus_time", "free_reroll", "monster_list" });
+
+		std::ostringstream query;
 		for (uint8_t slotId = PreySlot_First; slotId <= PreySlot_Last; slotId++) {
 			if (const auto &slot = player->getPreySlotById(static_cast<PreySlot_t>(slotId))) {
+				query << player->getGUID() << ", "
+					  << static_cast<uint16_t>(slot->id) << ", "
+					  << static_cast<uint16_t>(slot->state) << ", "
+					  << slot->selectedRaceId << ", "
+					  << static_cast<uint16_t>(slot->option) << ", "
+					  << static_cast<uint16_t>(slot->bonus) << ", "
+					  << static_cast<uint16_t>(slot->bonusRarity) << ", "
+					  << slot->bonusPercentage << ", "
+					  << slot->bonusTimeLeft << ", "
+					  << slot->freeRerollTimeStamp << ", ";
+
 				PropWriteStream propPreyStream;
 				[[maybe_unused]] auto lambda = std::ranges::for_each(slot->raceIdList, [&propPreyStream](uint16_t raceId) {
 					propPreyStream.write<uint16_t>(raceId);
@@ -560,26 +574,18 @@ bool IOLoginDataSave::savePlayerPreyClass(const std::shared_ptr<Player> &player)
 
 				size_t preySize;
 				const char* preyList = propPreyStream.getStream(preySize);
+				query << Database::getInstance().escapeBlob(preyList, static_cast<uint32_t>(preySize));
 
-				if (!db.executeQuery(
-						"INSERT INTO `player_prey` (`player_id`, `slot`, `state`, `raceid`, `option`, `bonus_type`, `bonus_rarity`, `bonus_percentage`, `bonus_time`, `free_reroll`, `monster_list`) "
-						"VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
-						"ON DUPLICATE KEY UPDATE "
-						"`state` = VALUES(`state`), `raceid` = VALUES(`raceid`), `option` = VALUES(`option`), "
-						"`bonus_type` = VALUES(`bonus_type`), `bonus_rarity` = VALUES(`bonus_rarity`), "
-						"`bonus_percentage` = VALUES(`bonus_percentage`), `bonus_time` = VALUES(`bonus_time`), "
-						"`free_reroll` = VALUES(`free_reroll`), `monster_list` = VALUES(`monster_list`)",
-						{
-							player->getGUID(), static_cast<uint16_t>(slot->id), static_cast<uint16_t>(slot->state),
-							slot->selectedRaceId, static_cast<uint16_t>(slot->option), static_cast<uint16_t>(slot->bonus),
-							static_cast<uint16_t>(slot->bonusRarity), slot->bonusPercentage, slot->bonusTimeLeft,
-							slot->freeRerollTimeStamp, db.asBlob(preyList, static_cast<uint32_t>(preySize))
-						}
-					)) {
-					g_logger().warn("[IOLoginData::savePlayer] - Error saving prey slot data from player: {}", player->getName());
+				if (!preyQuery.addRow(query)) {
+					g_logger().warn("[IOLoginData::savePlayer] - Error adding row to prey slot data query for player: {}", player->getName());
 					return false;
 				}
 			}
+		}
+
+		if (!preyQuery.execute()) {
+			g_logger().warn("[IOLoginData::savePlayer] - Error saving prey slot data from player: {}", player->getName());
+			return false;
 		}
 	}
 	return true;
@@ -591,10 +597,23 @@ bool IOLoginDataSave::savePlayerTaskHuntingClass(const std::shared_ptr<Player> &
 		return false;
 	}
 
-	Database &db = Database::getInstance();
 	if (g_configManager().getBoolean(TASK_HUNTING_ENABLED)) {
+		DBInsert taskHuntingQuery("INSERT INTO `player_taskhunt` (`player_id`, `slot`, `state`, `raceid`, `upgrade`, `rarity`, `kills`, `disabled_time`, `free_reroll`, `monster_list`) VALUES ");
+		taskHuntingQuery.upsert({ "state", "raceid", "upgrade", "rarity", "kills", "disabled_time", "free_reroll", "monster_list" });
+
+		std::ostringstream query;
 		for (uint8_t slotId = PreySlot_First; slotId <= PreySlot_Last; slotId++) {
 			if (const auto &slot = player->getTaskHuntingSlotById(static_cast<PreySlot_t>(slotId))) {
+				query << player->getGUID() << ", "
+					  << static_cast<uint16_t>(slot->id) << ", "
+					  << static_cast<uint16_t>(slot->state) << ", "
+					  << slot->selectedRaceId << ", "
+					  << (slot->upgrade ? 1 : 0) << ", "
+					  << static_cast<uint16_t>(slot->rarity) << ", "
+					  << slot->currentKills << ", "
+					  << slot->disabledUntilTimeStamp << ", "
+					  << slot->freeRerollTimeStamp << ", ";
+
 				PropWriteStream propTaskHuntingStream;
 				[[maybe_unused]] auto lambda = std::ranges::for_each(slot->raceIdList, [&propTaskHuntingStream](uint16_t raceId) {
 					propTaskHuntingStream.write<uint16_t>(raceId);
@@ -602,25 +621,18 @@ bool IOLoginDataSave::savePlayerTaskHuntingClass(const std::shared_ptr<Player> &
 
 				size_t taskHuntingSize;
 				const char* taskHuntingList = propTaskHuntingStream.getStream(taskHuntingSize);
+				query << Database::getInstance().escapeBlob(taskHuntingList, static_cast<uint32_t>(taskHuntingSize));
 
-				if (!db.executeQuery(
-						"INSERT INTO `player_taskhunt` (`player_id`, `slot`, `state`, `raceid`, `upgrade`, `rarity`, `kills`, `disabled_time`, `free_reroll`, `monster_list`) "
-						"VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
-						"ON DUPLICATE KEY UPDATE "
-						"`state` = VALUES(`state`), `raceid` = VALUES(`raceid`), `upgrade` = VALUES(`upgrade`), "
-						"`rarity` = VALUES(`rarity`), `kills` = VALUES(`kills`), `disabled_time` = VALUES(`disabled_time`), "
-						"`free_reroll` = VALUES(`free_reroll`), `monster_list` = VALUES(`monster_list`)",
-						{
-							player->getGUID(), static_cast<uint16_t>(slot->id), static_cast<uint16_t>(slot->state),
-							slot->selectedRaceId, (slot->upgrade ? 1 : 0), static_cast<uint16_t>(slot->rarity),
-							slot->currentKills, slot->disabledUntilTimeStamp, slot->freeRerollTimeStamp,
-							db.asBlob(taskHuntingList, static_cast<uint32_t>(taskHuntingSize))
-						}
-					)) {
-					g_logger().warn("[IOLoginData::savePlayer] - Error saving task hunting slot data from player: {}", player->getName());
+				if (!taskHuntingQuery.addRow(query)) {
+					g_logger().warn("[IOLoginData::savePlayer] - Error adding row to task hunting slot data query for player: {}", player->getName());
 					return false;
 				}
 			}
+		}
+
+		if (!taskHuntingQuery.execute()) {
+			g_logger().warn("[IOLoginData::savePlayer] - Error saving task hunting slot data from player: {}", player->getName());
+			return false;
 		}
 	}
 	return true;
