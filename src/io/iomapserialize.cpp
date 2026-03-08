@@ -460,7 +460,7 @@ bool IOMapSerialize::SaveHouseInfoGuard() {
 		return false;
 	}
 
-	if (!db.executeQuery(fmt::format("DELETE FROM `house_lists` WHERE `version` < {}", version))) {
+	if (!db.executeQuery("DELETE FROM `house_lists` WHERE `version` < ?", { version })) {
 		return false;
 	}
 

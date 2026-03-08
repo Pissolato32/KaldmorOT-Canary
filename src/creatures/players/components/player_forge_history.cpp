@@ -43,8 +43,7 @@ void PlayerForgeHistory::remove(uint32_t id) {
 bool PlayerForgeHistory::load() {
 	auto playerGUID = m_player.getGUID();
 	Benchmark benchmark;
-	auto query = fmt::format("SELECT * FROM forge_history WHERE player_id = {}", playerGUID);
-	const DBResult_ptr &result = g_database().storeQuery(query);
+	const DBResult_ptr &result = g_database().storeQuery("SELECT * FROM `forge_history` WHERE `player_id` = ?", { playerGUID });
 	if (!result) {
 		g_logger().debug("No forge history found for player with ID: {}", playerGUID);
 		benchmark.log("PlayerForgeHistory::load completed (no history found)");
@@ -74,13 +73,24 @@ bool PlayerForgeHistory::save() {
 
 	Benchmark benchmark;
 	if (!m_removedHistoryIds.empty()) {
-		std::string idsToDelete = fmt::format("{}", fmt::join(m_removedHistoryIds, ", "));
-		std::string deleteQuery = fmt::format(
-			"DELETE FROM `forge_history` WHERE `player_id` = {} AND `id` IN ({})",
-			playerGUID, idsToDelete
-		);
-
-		if (!g_database().executeQuery(deleteQuery)) {
+		std::string placeholders;
+		placeholders.reserve(m_removedHistoryIds.size() * 2);
+		for (size_t i = 0; i < m_removedHistoryIds.size(); ++i) {
+			if (i > 0) {
+				placeholders += ',';
+			}
+			placeholders += '?';
+		}
+		std::vector<DatabaseVariant> params;
+		params.reserve(m_removedHistoryIds.size() + 1);
+		params.emplace_back(playerGUID);
+		for (auto rid : m_removedHistoryIds) {
+			params.emplace_back(rid);
+		}
+		if (!g_database().executeQuery(
+				"DELETE FROM `forge_history` WHERE `player_id` = ? AND `id` IN (" + placeholders + ")",
+				params
+			)) {
 			g_logger().error("Failed to delete forge history entries for player with ID: {}", playerGUID);
 			return false;
 		}
