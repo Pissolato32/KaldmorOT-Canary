@@ -39,9 +39,24 @@ bool DbPlayerStorageRepository::deleteKeys(uint32_t id, const std::vector<uint32
 	if (keys.empty()) {
 		return true;
 	}
-	auto in = fmt::format("{}", fmt::join(keys, ","));
-	auto query = fmt::format("DELETE FROM `player_storage` WHERE `player_id`={} AND `key` IN ({})", id, in);
-	return Database::getInstance().executeQuery(query);
+	std::string placeholders;
+	placeholders.reserve(keys.size() * 2);
+	for (size_t i = 0; i < keys.size(); ++i) {
+		if (i > 0) {
+			placeholders += ',';
+		}
+		placeholders += '?';
+	}
+	std::vector<DatabaseVariant> params;
+	params.reserve(keys.size() + 1);
+	params.emplace_back(id);
+	for (auto k : keys) {
+		params.emplace_back(k);
+	}
+	return Database::getInstance().executeQuery(
+		"DELETE FROM `player_storage` WHERE `player_id` = ? AND `key` IN (" + placeholders + ")",
+		params
+	);
 }
 
 bool DbPlayerStorageRepository::upsert(uint32_t id, const std::map<uint32_t, int32_t> &kv) {
@@ -51,7 +66,9 @@ bool DbPlayerStorageRepository::upsert(uint32_t id, const std::map<uint32_t, int
 	DBInsert insert("INSERT INTO `player_storage` (`player_id`,`key`,`value`) VALUES ");
 	insert.upsert({ "value" });
 	for (auto &[key, value] : kv) {
-		if (!insert.addRow(fmt::format("{},{},{}", id, key, value))) {
+		std::ostringstream row;
+		row << id << ',' << key << ',' << value;
+		if (!insert.addRow(row)) {
 			return false;
 		}
 	}

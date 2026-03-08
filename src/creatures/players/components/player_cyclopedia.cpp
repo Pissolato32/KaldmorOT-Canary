@@ -26,7 +26,7 @@ Summary PlayerCyclopedia::getSummary() const {
 }
 
 void PlayerCyclopedia::loadSummaryData() const {
-	const DBResult_ptr result = g_database().storeQuery(fmt::format("SELECT COUNT(*) as `count` FROM `player_hirelings` WHERE `player_id` = {}", m_player.getGUID()));
+	const DBResult_ptr result = g_database().storeQuery("SELECT COUNT(*) as `count` FROM `player_hirelings` WHERE `player_id` = ?", { m_player.getGUID() });
 	const auto kvScoped = m_player.kv()->scoped("summary")->scoped(g_game().getSummaryKeyByType(static_cast<uint8_t>(Summary_t::HIRELINGS)));
 	if (result && !kvScoped->get("amount").has_value()) {
 		kvScoped->set("amount", result->getNumber<int16_t>("count"));
@@ -36,7 +36,11 @@ void PlayerCyclopedia::loadSummaryData() const {
 void PlayerCyclopedia::loadDeathHistory(uint16_t page, uint16_t entriesPerPage) const {
 	Benchmark bm_check;
 	uint32_t offset = static_cast<uint32_t>(page - 1) * entriesPerPage;
-	const auto query = fmt::format("SELECT `time`, `level`, `killed_by`, `mostdamage_by`, (select count(*) FROM `player_deaths` WHERE `player_id` = {}) as `entries` FROM `player_deaths` WHERE `player_id` = {} AND `time` >= UNIX_TIMESTAMP(DATE_SUB(NOW(), INTERVAL 30 DAY)) ORDER BY `time` DESC LIMIT {}, {}", m_player.getGUID(), m_player.getGUID(), offset, entriesPerPage);
+	const auto query = "SELECT `time`, `level`, `killed_by`, `mostdamage_by`, "
+		"(select count(*) FROM `player_deaths` WHERE `player_id` = " + std::to_string(m_player.getGUID()) + ") as `entries` "
+		"FROM `player_deaths` WHERE `player_id` = " + std::to_string(m_player.getGUID()) + " "
+		"AND `time` >= UNIX_TIMESTAMP(DATE_SUB(NOW(), INTERVAL 30 DAY)) "
+		"ORDER BY `time` DESC LIMIT " + std::to_string(offset) + ", " + std::to_string(entriesPerPage);
 
 	uint32_t playerID = m_player.getID();
 	const std::function<void(DBResult_ptr, bool)> callback = [playerID, page, entriesPerPage](const DBResult_ptr &result, bool) {
@@ -86,7 +90,12 @@ void PlayerCyclopedia::loadRecentKills(uint16_t page, uint16_t entriesPerPage) c
 
 	const std::string &escapedName = g_database().escapeString(m_player.getName());
 	uint32_t offset = static_cast<uint32_t>(page - 1) * entriesPerPage;
-	const auto query = fmt::format("SELECT `d`.`time`, `d`.`killed_by`, `d`.`mostdamage_by`, `d`.`unjustified`, `d`.`mostdamage_unjustified`, `p`.`name`, (select count(*) FROM `player_deaths` WHERE ((`killed_by` = {} AND `is_player` = 1) OR (`mostdamage_by` = {} AND `mostdamage_is_player` = 1))) as `entries` FROM `player_deaths` AS `d` INNER JOIN `players` AS `p` ON `d`.`player_id` = `p`.`id` WHERE ((`d`.`killed_by` = {} AND `d`.`is_player` = 1) OR (`d`.`mostdamage_by` = {} AND `d`.`mostdamage_is_player` = 1)) AND `time` >= UNIX_TIMESTAMP(DATE_SUB(NOW(), INTERVAL 70 DAY)) ORDER BY `time` DESC LIMIT {}, {}", escapedName, escapedName, escapedName, escapedName, offset, entriesPerPage);
+	const auto query = "SELECT `d`.`time`, `d`.`killed_by`, `d`.`mostdamage_by`, `d`.`unjustified`, `d`.`mostdamage_unjustified`, `p`.`name`, "
+		"(select count(*) FROM `player_deaths` WHERE ((`killed_by` = " + escapedName + " AND `is_player` = 1) OR (`mostdamage_by` = " + escapedName + " AND `mostdamage_is_player` = 1))) as `entries` "
+		"FROM `player_deaths` AS `d` INNER JOIN `players` AS `p` ON `d`.`player_id` = `p`.`id` "
+		"WHERE ((`d`.`killed_by` = " + escapedName + " AND `d`.`is_player` = 1) OR (`d`.`mostdamage_by` = " + escapedName + " AND `d`.`mostdamage_is_player` = 1)) "
+		"AND `time` >= UNIX_TIMESTAMP(DATE_SUB(NOW(), INTERVAL 70 DAY)) "
+		"ORDER BY `time` DESC LIMIT " + std::to_string(offset) + ", " + std::to_string(entriesPerPage);
 
 	uint32_t playerID = m_player.getID();
 	const std::function<void(DBResult_ptr, bool)> callback = [playerID, page, entriesPerPage](const DBResult_ptr &result, bool) {
@@ -141,7 +150,7 @@ void PlayerCyclopedia::updateStoreSummary(uint8_t type, uint16_t amount, const s
 			break;
 		case Summary_t::ALL_BLESSINGS:
 			for (auto blessIt : magic_enum::enum_values<Blessings>()) {
-				insertValue(static_cast<uint8_t>(Summary_t::BLESSINGS), amount, fmt::format("{}", blessIt));
+				insertValue(static_cast<uint8_t>(Summary_t::BLESSINGS), amount, fmt::format("{}", fmt::underlying(blessIt)));
 			}
 			break;
 		default:
