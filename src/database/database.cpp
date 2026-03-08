@@ -428,8 +428,7 @@ DBResult_ptr Database::storeQuery(const std::string &query, const std::vector<Qu
 
 	MYSQL_RES* res = mysql_stmt_get_result(stmt);
 	if (res != nullptr) {
-		DBResult_ptr result = std::make_shared<DBResult>(res);
-		mysql_stmt_close(stmt);
+		DBResult_ptr result = std::make_shared<DBResult>(res, stmt);
 		if (!result->hasNext()) {
 			return nullptr;
 		}
@@ -480,8 +479,26 @@ DBResult::DBResult(MYSQL_RES* res) {
 	row = mysql_fetch_row(handle);
 }
 
+DBResult::DBResult(MYSQL_RES* res, MYSQL_STMT* stmt) :
+	stmtHandle(stmt) {
+	handle = res;
+
+	int num_fields = mysql_num_fields(handle);
+
+	const MYSQL_FIELD* fields = mysql_fetch_fields(handle);
+	for (size_t i = 0; i < num_fields; i++) {
+		listNames[fields[i].name] = i;
+	}
+	row = mysql_fetch_row(handle);
+}
+
 DBResult::~DBResult() {
-	mysql_free_result(handle);
+	if (handle) {
+		mysql_free_result(handle);
+	}
+	if (stmtHandle) {
+		mysql_stmt_close(stmtHandle);
+	}
 }
 
 std::string DBResult::getString(const std::string &s) const {
