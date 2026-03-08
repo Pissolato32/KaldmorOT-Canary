@@ -67,9 +67,10 @@ void IOLoginDataLoad::loadItems(ItemsMap &itemsMap, const DBResult_ptr &result, 
 bool IOLoginDataLoad::preLoadPlayer(const std::shared_ptr<Player> &player, const std::string &name) {
 	Database &db = Database::getInstance();
 
-	std::ostringstream query;
-	query << "SELECT `id`, `account_id`, `group_id`, `deletion` FROM `players` WHERE `name` = " << db.escapeString(name);
-	DBResult_ptr result = db.storeQuery(query.str());
+	DBResult_ptr result = db.storeQuery(
+		"SELECT `id`, `account_id`, `group_id`, `deletion` FROM `players` WHERE `name` = ?",
+		{ name }
+	);
 	if (!result) {
 		return false;
 	}
@@ -374,9 +375,10 @@ void IOLoginDataLoad::loadPlayerKills(const std::shared_ptr<Player> &player, DBR
 	}
 
 	Database &db = Database::getInstance();
-	std::ostringstream query;
-	query << "SELECT `player_id`, `time`, `target`, `unavenged` FROM `player_kills` WHERE `player_id` = " << player->getGUID();
-	if ((result = db.storeQuery(query.str()))) {
+	if ((result = db.storeQuery(
+			"SELECT `player_id`, `time`, `target`, `unavenged` FROM `player_kills` WHERE `player_id` = ?",
+			{ player->getGUID() }
+		))) {
 		int64_t lastKillTime = 0;
 		const int64_t fragTime = g_configManager().getNumber(FRAG_TIME);
 		do {
@@ -397,9 +399,10 @@ void IOLoginDataLoad::loadPlayerGuild(const std::shared_ptr<Player> &player, DBR
 	}
 
 	Database &db = Database::getInstance();
-	std::ostringstream query;
-	query << "SELECT `guild_id`, `rank_id`, `nick` FROM `guild_membership` WHERE `player_id` = " << player->getGUID();
-	if ((result = db.storeQuery(query.str()))) {
+	if ((result = db.storeQuery(
+			"SELECT `guild_id`, `rank_id`, `nick` FROM `guild_membership` WHERE `player_id` = ?",
+			{ player->getGUID() }
+		))) {
 		auto guildId = result->getNumber<uint32_t>("guild_id");
 		auto playerRankId = result->getNumber<uint32_t>("rank_id");
 		player->guildNick = result->getString("nick");
@@ -414,10 +417,10 @@ void IOLoginDataLoad::loadPlayerGuild(const std::shared_ptr<Player> &player, DBR
 			player->guild = guild;
 			GuildRank_ptr rank = guild->getRankById(playerRankId);
 			if (!rank) {
-				query.str("");
-				query << "SELECT `id`, `name`, `level` FROM `guild_ranks` WHERE `id` = " << playerRankId;
-
-				if ((result = db.storeQuery(query.str()))) {
+				if ((result = db.storeQuery(
+						"SELECT `id`, `name`, `level` FROM `guild_ranks` WHERE `id` = ?",
+						{ playerRankId }
+					))) {
 					guild->addRank(result->getNumber<uint32_t>("id"), result->getString("name"), static_cast<uint8_t>(result->getNumber<uint16_t>("level")));
 				}
 
@@ -431,9 +434,10 @@ void IOLoginDataLoad::loadPlayerGuild(const std::shared_ptr<Player> &player, DBR
 
 			IOGuild::getWarList(guildId, player->guildWarVector);
 
-			query.str("");
-			query << "SELECT COUNT(*) AS `members` FROM `guild_membership` WHERE `guild_id` = " << guildId;
-			if ((result = db.storeQuery(query.str()))) {
+			if ((result = db.storeQuery(
+					"SELECT COUNT(*) AS `members` FROM `guild_membership` WHERE `guild_id` = ?",
+					{ guildId }
+				))) {
 				guild->setMemberCount(result->getNumber<uint32_t>("members"));
 			}
 		}
@@ -447,9 +451,10 @@ void IOLoginDataLoad::loadPlayerStashItems(const std::shared_ptr<Player> &player
 	}
 
 	Database &db = Database::getInstance();
-	std::ostringstream query;
-	query << "SELECT `item_count`, `item_id`  FROM `player_stash` WHERE `player_id` = " << player->getGUID();
-	if ((result = db.storeQuery(query.str()))) {
+	if ((result = db.storeQuery(
+			"SELECT `item_count`, `item_id` FROM `player_stash` WHERE `player_id` = ?",
+			{ player->getGUID() }
+		))) {
 		do {
 			auto itemId = result->getNumber<uint16_t>("item_id");
 			const ItemType &itemType = Item::items[itemId];
@@ -475,9 +480,10 @@ void IOLoginDataLoad::loadPlayerBestiaryCharms(const std::shared_ptr<Player> &pl
 	}
 
 	Database &db = Database::getInstance();
-	std::ostringstream query;
-	query << "SELECT * FROM `player_charms` WHERE `player_id` = " << player->getGUID();
-	if ((result = db.storeQuery(query.str()))) {
+	if ((result = db.storeQuery(
+			"SELECT * FROM `player_charms` WHERE `player_id` = ?",
+			{ player->getGUID() }
+		))) {
 		player->charmPoints = result->getNumber<uint32_t>("charm_points");
 		player->minorCharmEchoes = result->getNumber<uint32_t>("minor_charm_echoes");
 		player->maxCharmPoints = result->getNumber<uint32_t>("max_charm_points");
@@ -517,9 +523,10 @@ void IOLoginDataLoad::loadPlayerBestiaryCharms(const std::shared_ptr<Player> &pl
 			}
 		}
 	} else {
-		query.str("");
-		query << "INSERT INTO `player_charms` (`player_id`) VALUES (" << player->getGUID() << ')';
-		Database::getInstance().executeQuery(query.str());
+		Database::getInstance().executeQuery(
+			"INSERT INTO `player_charms` (`player_id`) VALUES (?)",
+			{ player->getGUID() }
+		);
 	}
 }
 
@@ -530,29 +537,25 @@ void IOLoginDataLoad::loadPlayerInstantSpellList(const std::shared_ptr<Player> &
 	}
 
 	Database &db = Database::getInstance();
-	std::ostringstream query;
-	query << "SELECT `player_id`, `name` FROM `player_spells` WHERE `player_id` = " << player->getGUID();
-	if ((result = db.storeQuery(query.str()))) {
+	if ((result = db.storeQuery(
+			"SELECT `player_id`, `name` FROM `player_spells` WHERE `player_id` = ?",
+			{ player->getGUID() }
+		))) {
 		do {
 			(void)player->learnedInstantSpellList.emplace_back(result->getString("name"));
 		} while (result->next());
 	}
 }
 
-void IOLoginDataLoad::loadPlayerInventoryItems(const std::shared_ptr<Player> &player, DBResult_ptr result) {
-	if (!result || !player) {
-		g_logger().warn("[{}] - Player or Result nullptr", __FUNCTION__);
-		return;
-	}
-
-	auto query = fmt::format("SELECT pid, sid, itemtype, count, attributes FROM player_items WHERE player_id = {} ORDER BY sid DESC", player->getGUID());
-
 	ItemsMap inventoryItems;
 	std::vector<std::shared_ptr<Item>> itemsToStartDecaying;
 	std::vector<std::shared_ptr<Item>> imbuedItemsToStartDecay;
 
 	try {
-		if (!(result = g_database().storeQuery(query))) {
+		if (!(result = g_database().storeQuery(
+				"SELECT `pid`, `sid`, `itemtype`, `count`, `attributes` FROM `player_items` WHERE `player_id` = ? ORDER BY `sid` DESC",
+				{ player->getGUID() }
+			))) {
 			return;
 		}
 
@@ -647,12 +650,10 @@ void IOLoginDataLoad::loadRewardItems(const std::shared_ptr<Player> &player) {
 		return;
 	}
 
-	ItemsMap rewardItems;
-	std::ostringstream query;
-	query.str(std::string());
-	query << "SELECT `pid`, `sid`, `itemtype`, `count`, `attributes` FROM `player_rewards` WHERE `player_id` = "
-		  << player->getGUID() << " ORDER BY `pid`, `sid` ASC";
-	if (auto result = Database::getInstance().storeQuery(query.str())) {
+	if (auto result = Database::getInstance().storeQuery(
+			"SELECT `pid`, `sid`, `itemtype`, `count`, `attributes` FROM `player_rewards` WHERE `player_id` = ? ORDER BY `pid`, `sid` ASC",
+			{ player->getGUID() }
+		)) {
 		loadItems(rewardItems, result, player);
 		bindRewardBag(player, rewardItems);
 		insertItemsIntoRewardBag(rewardItems);
@@ -667,8 +668,10 @@ void IOLoginDataLoad::loadPlayerDepotItems(const std::shared_ptr<Player> &player
 
 	ItemsMap depotItems;
 	std::vector<std::shared_ptr<Item>> itemsToStartDecaying;
-	auto query = fmt::format("SELECT pid, sid, itemtype, count, attributes FROM player_depotitems WHERE player_id = {} ORDER BY sid DESC", player->getGUID());
-	if ((result = g_database().storeQuery(query))) {
+	if ((result = g_database().storeQuery(
+			"SELECT `pid`, `sid`, `itemtype`, `count`, `attributes` FROM `player_depotitems` WHERE `player_id` = ? ORDER BY `sid` DESC",
+			{ player->getGUID() }
+		))) {
 		loadItems(depotItems, result, player);
 		for (auto it = depotItems.rbegin(), end = depotItems.rend(); it != end; ++it) {
 			const std::pair<std::shared_ptr<Item>, int32_t> &pair = it->second;
@@ -713,8 +716,10 @@ void IOLoginDataLoad::loadPlayerInboxItems(const std::shared_ptr<Player> &player
 	}
 
 	std::vector<std::shared_ptr<Item>> itemsToStartDecaying;
-	auto query = fmt::format("SELECT pid, sid, itemtype, count, attributes FROM player_inboxitems WHERE player_id = {} ORDER BY sid DESC", player->getGUID());
-	if ((result = g_database().storeQuery(query))) {
+	if ((result = g_database().storeQuery(
+			"SELECT `pid`, `sid`, `itemtype`, `count`, `attributes` FROM `player_inboxitems` WHERE `player_id` = ? ORDER BY `sid` DESC",
+			{ player->getGUID() }
+		))) {
 		ItemsMap inboxItems;
 		loadItems(inboxItems, result, player);
 
@@ -775,26 +780,32 @@ void IOLoginDataLoad::loadPlayerVip(const std::shared_ptr<Player> &player, DBRes
 	uint32_t accountId = player->getAccountId();
 
 	Database &db = Database::getInstance();
-	std::string query = fmt::format("SELECT `player_id` FROM `account_viplist` WHERE `account_id` = {}", accountId);
-	if ((result = db.storeQuery(query))) {
+	if ((result = db.storeQuery(
+			"SELECT `player_id` FROM `account_viplist` WHERE `account_id` = ?",
+			{ accountId }
+		))) {
 		do {
 			player->vip().addInternal(result->getNumber<uint32_t>("player_id"));
 		} while (result->next());
 	}
 
-	query = fmt::format("SELECT `id`, `name`, `customizable` FROM `account_vipgroups` WHERE `account_id` = {}", accountId);
-	if ((result = db.storeQuery(query))) {
+	if ((result = db.storeQuery(
+			"SELECT `id`, `name`, `customizable` FROM `account_vipgroups` WHERE `account_id` = ?",
+			{ accountId }
+		))) {
 		do {
 			player->vip().addGroupInternal(
 				result->getNumber<uint8_t>("id"),
 				result->getString("name"),
-				result->getNumber<uint8_t>("customizable") == 0 ? false : true
+				result->getNumber<uint8_t>("customizable") != 0
 			);
 		} while (result->next());
 	}
 
-	query = fmt::format("SELECT `player_id`, `vipgroup_id` FROM `account_vipgrouplist` WHERE `account_id` = {}", accountId);
-	if ((result = db.storeQuery(query))) {
+	if ((result = db.storeQuery(
+			"SELECT `player_id`, `vipgroup_id` FROM `account_vipgrouplist` WHERE `account_id` = ?",
+			{ accountId }
+		))) {
 		do {
 			player->vip().addGuidToGroupInternal(
 				result->getNumber<uint8_t>("vipgroup_id"),

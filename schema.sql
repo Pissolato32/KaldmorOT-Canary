@@ -365,6 +365,7 @@ CREATE TABLE IF NOT EXISTS `guild_wars` (
     `duration_days` tinyint(3) UNSIGNED NOT NULL DEFAULT '0',
     INDEX `guild1` (`guild1`),
     INDEX `guild2` (`guild2`),
+    INDEX `idx_guild_wars_status` (`status`, `guild1`, `guild2`),
     CONSTRAINT `guild_wars_pk` PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
@@ -589,6 +590,7 @@ CREATE TABLE IF NOT EXISTS `player_deaths` (
     INDEX `player_id` (`player_id`),
     INDEX `killed_by` (`killed_by`),
     INDEX `mostdamage_by` (`mostdamage_by`),
+    INDEX `idx_player_deaths_time` (`player_id`, `time`),
     CONSTRAINT `player_deaths_players_fk`
         FOREIGN KEY (`player_id`) REFERENCES `players` (`id`)
         ON DELETE CASCADE

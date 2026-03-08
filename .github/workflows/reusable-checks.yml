@@ -71,7 +71,13 @@ jobs:
           reviewdog -reporter="${REVIEWDOG_REPORTER}" -runners=luac -fail-level=error -filter-mode=added
           reviewdog -reporter="${REVIEWDOG_REPORTER}" -runners=luacheck -filter-mode=added || true
           reviewdog -reporter="${REVIEWDOG_REPORTER}" -runners=xmllint -fail-level=error -filter-mode=added
-          reviewdog -reporter="${REVIEWDOG_REPORTER}" -runners=cppcheck -filter-mode=added || true
+          cppcheck \
+            --enable=warning,style,performance,portability \
+            --inconclusive \
+            --std=c++20 \
+            --inline-suppr \
+            --error-exitcode=1 \
+            src | reviewdog -f=cppcheck -reporter="${REVIEWDOG_REPORTER}" -filter-mode=added || true
 
       - name: Run yamllint
         uses: reviewdog/action-yamllint@v1.6.1

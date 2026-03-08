@@ -44,12 +44,12 @@ bool Database::connect(const std::string* host, const std::string* user, const s
 	bool reconnect = true;
 	mysql_options(handle, MYSQL_OPT_RECONNECT, &reconnect);
 
-	// Remove ssl verification
-	bool ssl_enabled = false;
-	mysql_options(handle, MYSQL_OPT_SSL_VERIFY_SERVER_CERT, &ssl_enabled);
+	// Enable ssl verification
+	bool ssl_verify = true;
+	mysql_options(handle, MYSQL_OPT_SSL_VERIFY_SERVER_CERT, &ssl_verify);
 
 	// connects to database
-	if (!mysql_real_connect(handle, host->c_str(), user->c_str(), password->c_str(), database->c_str(), port, sock->c_str(), 0)) {
+	if (!mysql_real_connect(handle, host->c_str(), user->c_str(), password->c_str(), database->c_str(), port, sock->c_str(), CLIENT_SSL)) {
 		g_logger().error("MySQL Error Message: {}", mysql_error(handle));
 		return false;
 	}
@@ -76,8 +76,21 @@ void Database::createDatabaseBackup(bool compress) const {
 	std::filesystem::create_directories(backupDir);
 	std::string backupFileName = fmt::format("{}backup_{}.sql", backupDir, formattedTime);
 
+	class ConfigFileGuard {
+		std::string path;
+
+	public:
+		explicit ConfigFileGuard(std::string p) :
+			path(std::move(p)) { }
+		~ConfigFileGuard() {
+			std::error_code ec;
+			std::filesystem::remove(path, ec);
+		}
+	};
+
 	// Create a temporary configuration file for MySQL credentials
 	std::string tempConfigFile = "database_backup.cnf";
+	ConfigFileGuard guard(tempConfigFile);
 	std::ofstream configFile(tempConfigFile);
 	if (configFile.is_open()) {
 		configFile << "[client]\n";
@@ -98,7 +111,6 @@ void Database::createDatabaseBackup(bool compress) const {
 	);
 
 	int result = std::system(command.c_str());
-	std::filesystem::remove(tempConfigFile);
 
 	if (result != 0) {
 		g_logger().error("Failed to create database backup using mysqldump.");
@@ -221,23 +233,91 @@ bool Database::retryQuery(std::string_view query, int retries) {
 	return true;
 }
 
-bool Database::executeQuery(std::string_view query) {
+bool Database::executeQuery(const std::string &query, const std::vector<QueryParamVariant> &params) {
 	if (!handle) {
 		g_logger().error("Database not initialized!");
 		return false;
 	}
 
-	g_logger().trace("Executing Query: {}", query);
+	g_logger().trace("Executing Parameterized Query: {}", query);
 
 	metrics::lock_latency measureLock("database");
 	std::scoped_lock lock { databaseLock };
 	measureLock.stop();
 
-	metrics::query_latency measure(query.substr(0, 50));
-	bool success = retryQuery(query, 10);
-	mysql_free_result(mysql_store_result(handle));
+	MYSQL_STMT* stmt = mysql_stmt_init(handle);
+	if (!stmt) {
+		g_logger().error("mysql_stmt_init failed: {}", mysql_error(handle));
+		return false;
+	}
 
-	return success;
+	if (mysql_stmt_prepare(stmt, query.c_str(), query.length()) != 0) {
+		g_logger().error("mysql_stmt_prepare failed: {}", mysql_stmt_error(stmt));
+		mysql_stmt_close(stmt);
+		return false;
+	}
+
+	size_t count = params.size();
+	std::vector<MYSQL_BIND> binds(count);
+	memset(binds.data(), 0, sizeof(MYSQL_BIND) * count);
+
+	struct ParameterData {
+		std::string str;
+		long long i64;
+		long i32;
+		signed char b;
+	};
+	std::vector<ParameterData> storage(count);
+
+	for (size_t i = 0; i < count; ++i) {
+		std::visit([&](auto &&arg) {
+			using T = std::decay_t<decltype(arg)>;
+			if constexpr (std::is_same_v<T, std::string>) {
+				storage[i].str = arg;
+				binds[i].buffer_type = MYSQL_TYPE_STRING;
+				binds[i].buffer = (void*)storage[i].str.c_str();
+				binds[i].buffer_length = storage[i].str.length();
+			} else if constexpr (std::is_same_v<T, int32_t>) {
+				storage[i].i32 = arg;
+				binds[i].buffer_type = MYSQL_TYPE_LONG;
+				binds[i].buffer = &storage[i].i32;
+			} else if constexpr (std::is_same_v<T, uint32_t>) {
+				storage[i].i32 = static_cast<long>(arg);
+				binds[i].buffer_type = MYSQL_TYPE_LONG;
+				binds[i].buffer = &storage[i].i32;
+				binds[i].is_unsigned = true;
+			} else if constexpr (std::is_same_v<T, int64_t>) {
+				storage[i].i64 = arg;
+				binds[i].buffer_type = MYSQL_TYPE_LONGLONG;
+				binds[i].buffer = &storage[i].i64;
+			} else if constexpr (std::is_same_v<T, uint64_t>) {
+				storage[i].i64 = static_cast<long long>(arg);
+				binds[i].buffer_type = MYSQL_TYPE_LONGLONG;
+				binds[i].buffer = &storage[i].i64;
+				binds[i].is_unsigned = true;
+			} else if constexpr (std::is_same_v<T, bool>) {
+				storage[i].b = arg ? 1 : 0;
+				binds[i].buffer_type = MYSQL_TYPE_TINY;
+				binds[i].buffer = &storage[i].b;
+			}
+		}, params[i]);
+	}
+
+	if (count > 0 && mysql_stmt_bind_param(stmt, binds.data()) != 0) {
+		g_logger().error("mysql_stmt_bind_param failed: {}", mysql_stmt_error(stmt));
+		mysql_stmt_close(stmt);
+		return false;
+	}
+
+	metrics::query_latency measure(query.substr(0, 50));
+	if (mysql_stmt_execute(stmt) != 0) {
+		g_logger().error("mysql_stmt_execute failed: {}", mysql_stmt_error(stmt));
+		mysql_stmt_close(stmt);
+		return false;
+	}
+
+	mysql_stmt_close(stmt);
+	return true;
 }
 
 DBResult_ptr Database::storeQuery(std::string_view query) {
@@ -252,15 +332,18 @@ DBResult_ptr Database::storeQuery(std::string_view query) {
 	measureLock.stop();
 
 	metrics::query_latency measure(query.substr(0, 50));
-retry:
-	if (mysql_query(handle, query.data()) != 0) {
+	int retries = 10;
+	while (retries > 0 && mysql_query(handle, query.data()) != 0) {
 		g_logger().error("Query: {}", query);
 		g_logger().error("Message: {}", mysql_error(handle));
 		if (!isRecoverableError(mysql_errno(handle))) {
 			return nullptr;
 		}
 		std::this_thread::sleep_for(std::chrono::seconds(1));
-		goto retry;
+		retries--;
+	}
+	if (retries == 0) {
+		return nullptr;
 	}
 
 	// Retrieving results of query
@@ -272,6 +355,104 @@ retry:
 		}
 		return result;
 	}
+	return nullptr;
+}
+
+DBResult_ptr Database::storeQuery(const std::string &query, const std::vector<QueryParamVariant> &params) {
+	if (!handle) {
+		g_logger().error("Database not initialized!");
+		return nullptr;
+	}
+
+	g_logger().trace("Storing Parameterized Query: {}", query);
+
+	metrics::lock_latency measureLock("database");
+	std::scoped_lock lock { databaseLock };
+	measureLock.stop();
+
+	MYSQL_STMT* stmt = mysql_stmt_init(handle);
+	if (!stmt) {
+		g_logger().error("mysql_stmt_init failed: {}", mysql_error(handle));
+		return nullptr;
+	}
+
+	if (mysql_stmt_prepare(stmt, query.c_str(), query.length()) != 0) {
+		g_logger().error("mysql_stmt_prepare failed: {}", mysql_stmt_error(stmt));
+		mysql_stmt_close(stmt);
+		return nullptr;
+	}
+
+	size_t count = params.size();
+	std::vector<MYSQL_BIND> binds(count);
+	memset(binds.data(), 0, sizeof(MYSQL_BIND) * count);
+
+	struct ParameterData {
+		std::string str;
+		long long i64;
+		long i32;
+		signed char b;
+	};
+	std::vector<ParameterData> storage(count);
+
+	for (size_t i = 0; i < count; ++i) {
+		std::visit([&](auto &&arg) {
+			using T = std::decay_t<decltype(arg)>;
+			if constexpr (std::is_same_v<T, std::string>) {
+				storage[i].str = arg;
+				binds[i].buffer_type = MYSQL_TYPE_STRING;
+				binds[i].buffer = (void*)storage[i].str.c_str();
+				binds[i].buffer_length = storage[i].str.length();
+			} else if constexpr (std::is_same_v<T, int32_t>) {
+				storage[i].i32 = arg;
+				binds[i].buffer_type = MYSQL_TYPE_LONG;
+				binds[i].buffer = &storage[i].i32;
+			} else if constexpr (std::is_same_v<T, uint32_t>) {
+				storage[i].i32 = static_cast<long>(arg);
+				binds[i].buffer_type = MYSQL_TYPE_LONG;
+				binds[i].buffer = &storage[i].i32;
+				binds[i].is_unsigned = true;
+			} else if constexpr (std::is_same_v<T, int64_t>) {
+				storage[i].i64 = arg;
+				binds[i].buffer_type = MYSQL_TYPE_LONGLONG;
+				binds[i].buffer = &storage[i].i64;
+			} else if constexpr (std::is_same_v<T, uint64_t>) {
+				storage[i].i64 = static_cast<long long>(arg);
+				binds[i].buffer_type = MYSQL_TYPE_LONGLONG;
+				binds[i].buffer = &storage[i].i64;
+				binds[i].is_unsigned = true;
+			} else if constexpr (std::is_same_v<T, bool>) {
+				storage[i].b = arg ? 1 : 0;
+				binds[i].buffer_type = MYSQL_TYPE_TINY;
+				binds[i].buffer = &storage[i].b;
+			}
+		}, params[i]);
+	}
+
+	if (count > 0 && mysql_stmt_bind_param(stmt, binds.data()) != 0) {
+		g_logger().error("mysql_stmt_bind_param failed: {}", mysql_stmt_error(stmt));
+		mysql_stmt_close(stmt);
+		return nullptr;
+	}
+
+	metrics::query_latency measure(query.substr(0, 50));
+	if (mysql_stmt_execute(stmt) != 0) {
+		g_logger().error("mysql_stmt_execute failed: {}", mysql_stmt_error(stmt));
+		mysql_stmt_close(stmt);
+		return nullptr;
+	}
+
+	MYSQL_RES* res = mysql_stmt_get_result(stmt);
+	if (res != nullptr) {
+		DBResult_ptr result = std::make_shared<DBResult>(res, stmt);
+		if (!result->hasNext()) {
+			return nullptr;
+		}
+		return result;
+	}
+
+	mysql_stmt_close(stmt);
+
+	mysql_stmt_close(stmt);
 	return nullptr;
 }
 
@@ -315,8 +496,26 @@ DBResult::DBResult(MYSQL_RES* res) {
 	row = mysql_fetch_row(handle);
 }
 
+DBResult::DBResult(MYSQL_RES* res, MYSQL_STMT* stmt) :
+	stmtHandle(stmt) {
+	handle = res;
+
+	int num_fields = mysql_num_fields(handle);
+
+	const MYSQL_FIELD* fields = mysql_fetch_fields(handle);
+	for (size_t i = 0; i < num_fields; i++) {
+		listNames[fields[i].name] = i;
+	}
+	row = mysql_fetch_row(handle);
+}
+
 DBResult::~DBResult() {
-	mysql_free_result(handle);
+	if (handle) {
+		mysql_free_result(handle);
+	}
+	if (stmtHandle) {
+		mysql_stmt_close(stmtHandle);
+	}
 }
 
 std::string DBResult::getString(const std::string &s) const {

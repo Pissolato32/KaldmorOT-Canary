@@ -18,7 +18,8 @@
         "SPEED_UP_BUILD_UNITY": "ON",
         "OPTIONS_ENABLE_SCCACHE": "ON",
         "CMAKE_BUILD_TYPE": "RelWithDebInfo",
-        "CANARY_BUILD_TESTS": "OFF"
+        "CANARY_BUILD_TESTS": "OFF",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
       }
     },
     {

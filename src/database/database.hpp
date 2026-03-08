@@ -15,10 +15,13 @@
 	#include <mysql/mysql.h>
 	#include <mutex>
 	#include <utility>
+	#include <variant>
 #endif
 
 class DBResult;
 using DBResult_ptr = std::shared_ptr<DBResult>;
+
+using QueryParamVariant = std::variant<int32_t, uint32_t, int64_t, uint64_t, std::string, bool>;
 
 class Database {
 public:
@@ -56,8 +59,10 @@ public:
 
 	bool retryQuery(std::string_view query, int retries);
 	bool executeQuery(std::string_view query);
+	bool executeQuery(const std::string &query, const std::vector<QueryParamVariant> &params);
 
 	DBResult_ptr storeQuery(std::string_view query);
+	DBResult_ptr storeQuery(const std::string &query, const std::vector<QueryParamVariant> &params);
 
 	std::string escapeString(const std::string &s) const;
 
@@ -94,6 +99,7 @@ constexpr auto g_database = Database::getInstance;
 class DBResult {
 public:
 	explicit DBResult(MYSQL_RES* res);
+	explicit DBResult(MYSQL_RES* res, MYSQL_STMT* stmt);
 	~DBResult();
 
 	// Non copyable
@@ -190,8 +196,9 @@ public:
 	bool next();
 
 private:
-	MYSQL_RES* handle;
-	MYSQL_ROW row;
+	MYSQL_RES* handle = nullptr;
+	MYSQL_STMT* stmtHandle = nullptr;
+	MYSQL_ROW row = nullptr;
 
 	std::map<std::string_view, size_t> listNames;
 

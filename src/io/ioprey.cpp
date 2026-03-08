@@ -247,6 +247,11 @@ void TaskHuntingSlot::reloadReward() {
 	}
 }
 
+IOPrey::IOPrey() :
+	m_baseDataMessage(std::make_unique<NetworkMessage>()) { }
+
+IOPrey::~IOPrey() = default;
+
 IOPrey &IOPrey::getInstance() {
 	return inject<IOPrey>();
 }
@@ -551,7 +556,7 @@ void IOPrey::initializeTaskHuntOptions() {
 	// This is hardcoded on client but i'm saving it in case that they change it in the future
 	uint8_t limitOfStars = 5;
 	uint16_t kills = killStage;
-	NetworkMessage msg;
+	m_baseDataMessage->reset();
 	for (uint8_t difficulty = PreyTaskDifficult_First; difficulty <= PreyTaskDifficult_Last; ++difficulty) { // Difficulties of creatures on bestiary.
 		auto reward = static_cast<uint16_t>(std::round((10 * kills) / killStage));
 		// Amount of task stars on task hunting
@@ -573,39 +578,38 @@ void IOPrey::initializeTaskHuntOptions() {
 		kills *= 4;
 	}
 
-	msg.addByte(0xBA);
+	m_baseDataMessage->addByte(0xBA);
 	const std::map<uint16_t, std::string> &bestiaryList = g_game().getBestiaryList();
-	msg.add<uint16_t>(static_cast<uint16_t>(bestiaryList.size()));
-	std::for_each(bestiaryList.begin(), bestiaryList.end(), [&msg](auto mType) {
+	m_baseDataMessage->add<uint16_t>(static_cast<uint16_t>(bestiaryList.size()));
+	std::for_each(bestiaryList.begin(), bestiaryList.end(), [this](auto mType) {
 		const auto mtype = g_monsters().getMonsterType(mType.second);
 		if (!mtype) {
 			return;
 		}
 
-		msg.add<uint16_t>(mtype->info.raceid);
+		m_baseDataMessage->add<uint16_t>(mtype->info.raceid);
 		if (mtype->info.bestiaryStars <= 1) {
-			msg.addByte(0x01);
+			m_baseDataMessage->addByte(0x01);
 		} else if (mtype->info.bestiaryStars <= 3) {
-			msg.addByte(0x02);
+			m_baseDataMessage->addByte(0x02);
 		} else {
-			msg.addByte(0x03);
+			m_baseDataMessage->addByte(0x03);
 		}
 	});
 
-	msg.addByte(static_cast<uint8_t>(taskOption.size()));
-	std::for_each(taskOption.begin(), taskOption.end(), [&msg](const std::unique_ptr<TaskHuntingOption> &option) {
-		msg.addByte(static_cast<uint8_t>(option->difficult));
-		msg.addByte(option->rarity);
-		msg.add<uint16_t>(option->firstKills);
-		msg.add<uint16_t>(option->firstReward);
-		msg.add<uint16_t>(option->secondKills);
-		msg.add<uint16_t>(option->secondReward);
+	m_baseDataMessage->addByte(static_cast<uint8_t>(taskOption.size()));
+	std::for_each(taskOption.begin(), taskOption.end(), [this](const std::unique_ptr<TaskHuntingOption> &option) {
+		m_baseDataMessage->addByte(static_cast<uint8_t>(option->difficult));
+		m_baseDataMessage->addByte(option->rarity);
+		m_baseDataMessage->add<uint16_t>(option->firstKills);
+		m_baseDataMessage->add<uint16_t>(option->firstReward);
+		m_baseDataMessage->add<uint16_t>(option->secondKills);
+		m_baseDataMessage->add<uint16_t>(option->secondReward);
 	});
-	m_baseDataMessage = msg;
 }
 
-NetworkMessage IOPrey::getTaskHuntingBaseDate() const {
-	return m_baseDataMessage;
+const NetworkMessage &IOPrey::getTaskHuntingBaseDate() const {
+	return *m_baseDataMessage;
 }
 
 const std::unique_ptr<TaskHuntingOption> &IOPrey::getTaskRewardOption(const std::unique_ptr<TaskHuntingSlot> &slot) const {
