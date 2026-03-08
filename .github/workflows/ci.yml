@@ -70,6 +70,23 @@ jobs:
           restore-keys: |
             vcpkg-${{ runner.os }}-
 
+      - name: Cache ccache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ccache
+          key: ccache-${{ runner.os }}-${{ github.ref_name }}-${{ github.sha }}
+          restore-keys: |
+            ccache-${{ runner.os }}-${{ github.ref_name }}-
+            ccache-${{ runner.os }}-
+
+      - name: Configure ccache
+        run: |
+          sudo apt-get install -y ccache
+          ccache --max-size=500M
+          ccache --zero-stats
+          echo "CMAKE_C_COMPILER_LAUNCHER=ccache" >> $GITHUB_ENV
+          echo "CMAKE_CXX_COMPILER_LAUNCHER=ccache" >> $GITHUB_ENV
+
       - name: Install dependencies
         run: |
           sudo apt-get update
@@ -86,6 +103,10 @@ jobs:
       - name: Run Tests
         run: |
           ctest --test-dir build/linux-release-enabled-tests --output-on-failure
+
+      - name: ccache stats
+        if: always()
+        run: ccache --show-stats
 
   build-docker:
     name: Build - Docker
