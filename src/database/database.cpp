@@ -451,6 +451,8 @@ DBResult_ptr Database::storeQuery(const std::string &query, const std::vector<Qu
 	}
 
 	mysql_stmt_close(stmt);
+
+	mysql_stmt_close(stmt);
 	return nullptr;
 }
 
