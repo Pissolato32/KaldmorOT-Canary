@@ -40,7 +40,7 @@ public:
 private:
 	std::unordered_map<CoinType, std::string> coinTypeToColumn {};
 
-	bool load(const std::string &query, std::unique_ptr<AccountInfo> &acc);
+	bool load(const DBResult_ptr &result, std::unique_ptr<AccountInfo> &acc);
 	bool loadAccountPlayers(std::unique_ptr<AccountInfo> &acc) const;
 	void setupLoyaltyInfo(std::unique_ptr<AccountInfo> &acc);
 };

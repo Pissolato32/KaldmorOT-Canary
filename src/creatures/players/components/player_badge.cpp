@@ -117,9 +117,13 @@ bool PlayerBadge::loyalty(uint8_t amount) const {
 }
 
 std::vector<std::shared_ptr<Player>> PlayerBadge::getPlayersInfoByAccount(const std::shared_ptr<Account> &acc) const {
-	auto query = fmt::format("SELECT name, level, vocation FROM players WHERE account_id = {} AND deletion = 0", acc->getID());
 	std::vector<std::shared_ptr<Player>> players;
-	DBResult_ptr result = g_database().storeQuery(query);
+
+	DBResult_ptr result = g_database().storeQuery(
+		"SELECT `name`, `level`, `vocation` FROM `players` WHERE `account_id` = ? AND `deletion` = 0",
+		{ acc->getID() }
+	);
+
 	if (result) {
 		do {
 			auto player = std::make_shared<Player>(nullptr);

@@ -36,11 +36,10 @@ void House::setNewOwnerGuid(int32_t newOwnerGuid, bool serverStartup) {
 		return;
 	}
 
-	std::ostringstream query;
-	query << "UPDATE `houses` SET `new_owner` = " << newOwnerGuid << " WHERE `id` = " << id;
-
-	Database &db = Database::getInstance();
-	db.executeQuery(query.str());
+	Database::getInstance().executeQuery(
+		"UPDATE `houses` SET `new_owner` = ? WHERE `id` = ?",
+		{ newOwnerGuid, id }
+	);
 	if (!serverStartup) {
 		setNewOwnership();
 	}
@@ -92,11 +91,10 @@ bool House::tryTransferOwnership(const std::shared_ptr<Player> &player, bool ser
 
 void House::setOwner(uint32_t guid, bool updateDatabase /* = true*/, const std::shared_ptr<Player> &player /* = nullptr*/) {
 	if (updateDatabase && owner != guid) {
-		Database &db = Database::getInstance();
-
-		std::ostringstream query;
-		query << "UPDATE `houses` SET `owner` = " << guid << ", `new_owner` = -1, `paid` = 0, `bidder` = 0, `bidder_name` = '', `highest_bid` = 0, `internal_bid` = 0, `bid_end_date` = 0, `state` = " << (guid > 0 ? 2 : 0) << " WHERE `id` = " << id;
-		db.executeQuery(query.str());
+		Database::getInstance().executeQuery(
+			"UPDATE `houses` SET `owner` = ?, `new_owner` = -1, `paid` = 0, `bidder` = 0, `bidder_name` = '', `highest_bid` = 0, `internal_bid` = 0, `bid_end_date` = 0, `state` = ? WHERE `id` = ?",
+			{ guid, (guid > 0 ? 2 : 0), id }
+		);
 	}
 
 	if (isLoaded && owner == guid) {
@@ -132,10 +130,10 @@ void House::setOwner(uint32_t guid, bool updateDatabase /* = true*/, const std::
 	rentWarnings = 0;
 
 	if (guid != 0) {
-		Database &db = Database::getInstance();
-		std::ostringstream query;
-		query << "SELECT `name`, `account_id` FROM `players` WHERE `id` = " << guid;
-		const DBResult_ptr result = db.storeQuery(query.str());
+		const DBResult_ptr result = Database::getInstance().storeQuery(
+			"SELECT `name`, `account_id` FROM `players` WHERE `id` = ?",
+			{ guid }
+		);
 		if (!result) {
 			return;
 		}

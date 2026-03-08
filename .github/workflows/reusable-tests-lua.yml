@@ -8,11 +8,34 @@ jobs:
     name: Run Lua Tests
     runs-on: ubuntu-latest
     steps:
-      - name: Update
-        run: sudo apt-get update
-      - name: Setup Lua
-        run: sudo apt-get install -y libluajit-5.1-dev
-      - name: Check out code.
+      - name: Check out code
         uses: actions/checkout@v4
-      - name: Run Tests
-        run: echo "Running Lua tests..."
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y lua5.4 luarocks libxml2-utils
+          sudo luarocks install luacheck
+
+      - name: Run Luacheck
+        run: |
+          luacheck data --no-color --codes --max-line-length 200 || true
+
+      - name: Validate Lua Syntax
+        run: |
+          find data -name "*.lua" -print0 | while IFS= read -r -d '' file; do
+            lua -e "assert(loadfile('$file'))"
+          done
+
+      - name: Validate XML Files
+        run: |
+          find data -name "*.xml" -exec xmllint --noout --recover {} +
+
+      - name: Check for Duplicate Monster/NPC Names
+        run: |
+          duplicates=$(grep -RhoP 'name="[^"]+"' data/{monster,npc} 2>/dev/null | sort | uniq -d)
+          if [ -n "$duplicates" ]; then
+            echo "Duplicate monster/NPC names found:"
+            echo "$duplicates"
+            exit 1
+          fi

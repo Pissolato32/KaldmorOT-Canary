@@ -49,9 +49,47 @@ jobs:
 
   # --- Heavy Builds ---
 
+  build-server:
+    name: Build - Server
+    needs: [checks, tests-lua]
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || github.event.pull_request.draft == false
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: vcpkg cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/vcpkg
+            build/vcpkg_installed
+          key: vcpkg-${{ runner.os }}-${{ hashFiles('vcpkg.json', 'CMakeLists.txt', 'CMakePresets.json') }}
+          restore-keys: |
+            vcpkg-${{ runner.os }}-
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build g++-13
+
+      - name: Configure CMake
+        run: |
+          cmake --preset linux-release-enabled-tests -DCMAKE_CXX_COMPILER=g++-13 -DCMAKE_C_COMPILER=gcc-13
+
+      - name: Build
+        run: |
+          cmake --build build/linux-release-enabled-tests -j $(nproc)
+
+      - name: Run Tests
+        run: |
+          ctest --test-dir build/linux-release-enabled-tests --output-on-failure
+
   build-docker:
     name: Build - Docker
-    needs: [checks, tests-lua]
-    if: needs.checks.result == 'success' && needs.tests-lua.result == 'success' && (github.event_name == 'push' || !github.event.pull_request.draft)
+    needs: [build-server]
+    if: needs.build-server.result == 'success' && (github.event_name == 'push' || !github.event.pull_request.draft)
     uses: ./.github/workflows/reusable-build-docker.yml
     secrets: inherit

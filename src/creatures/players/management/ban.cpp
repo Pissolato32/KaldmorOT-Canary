@@ -49,10 +49,10 @@ bool Ban::acceptConnection(uint32_t clientIP) {
 bool IOBan::isAccountBanned(uint32_t accountId, BanInfo &banInfo) {
 	Database &db = Database::getInstance();
 
-	std::ostringstream query;
-	query << "SELECT `reason`, `expires_at`, `banned_at`, `banned_by`, (SELECT `name` FROM `players` WHERE `id` = `banned_by`) AS `name` FROM `account_bans` WHERE `account_id` = " << accountId;
-
-	const DBResult_ptr result = db.storeQuery(query.str());
+	const DBResult_ptr result = db.storeQuery(
+		"SELECT `reason`, `expires_at`, `banned_at`, `banned_by`, (SELECT `name` FROM `players` WHERE `id` = `banned_by`) AS `name` FROM `account_bans` WHERE `account_id` = ?",
+		{ accountId }
+	);
 	if (!result) {
 		return false;
 	}
@@ -60,13 +60,15 @@ bool IOBan::isAccountBanned(uint32_t accountId, BanInfo &banInfo) {
 	const auto expiresAt = result->getNumber<int64_t>("expires_at");
 	if (expiresAt != 0 && time(nullptr) > expiresAt) {
 		// Move the ban to history if it has expired
-		query.str(std::string());
-		query << "INSERT INTO `account_ban_history` (`account_id`, `reason`, `banned_at`, `expired_at`, `banned_by`) VALUES (" << accountId << ',' << db.escapeString(result->getString("reason")) << ',' << result->getNumber<time_t>("banned_at") << ',' << expiresAt << ',' << result->getNumber<uint32_t>("banned_by") << ')';
-		g_databaseTasks().execute(query.str());
+		g_databaseTasks().execute(
+			"INSERT INTO `account_ban_history` (`account_id`, `reason`, `banned_at`, `expired_at`, `banned_by`) VALUES (?, ?, ?, ?, ?)",
+			{ accountId, result->getString("reason"), result->getNumber<time_t>("banned_at"), expiresAt, result->getNumber<uint32_t>("banned_by") }
+		);
 
-		query.str(std::string());
-		query << "DELETE FROM `account_bans` WHERE `account_id` = " << accountId;
-		g_databaseTasks().execute(query.str());
+		g_databaseTasks().execute(
+			"DELETE FROM `account_bans` WHERE `account_id` = ?",
+			{ accountId }
+		);
 		return false;
 	}
 
@@ -83,19 +85,20 @@ bool IOBan::isIpBanned(uint32_t clientIP, BanInfo &banInfo) {
 
 	Database &db = Database::getInstance();
 
-	std::ostringstream query;
-	query << "SELECT `reason`, `expires_at`, (SELECT `name` FROM `players` WHERE `id` = `banned_by`) AS `name` FROM `ip_bans` WHERE `ip` = " << clientIP;
-
-	const DBResult_ptr result = db.storeQuery(query.str());
+	const DBResult_ptr result = db.storeQuery(
+		"SELECT `reason`, `expires_at`, (SELECT `name` FROM `players` WHERE `id` = `banned_by`) AS `name` FROM `ip_bans` WHERE `ip` = ?",
+		{ clientIP }
+	);
 	if (!result) {
 		return false;
 	}
 
 	const auto expiresAt = result->getNumber<int64_t>("expires_at");
 	if (expiresAt != 0 && time(nullptr) > expiresAt) {
-		query.str(std::string());
-		query << "DELETE FROM `ip_bans` WHERE `ip` = " << clientIP;
-		g_databaseTasks().execute(query.str());
+		g_databaseTasks().execute(
+			"DELETE FROM `ip_bans` WHERE `ip` = ?",
+			{ clientIP }
+		);
 		return false;
 	}
 
@@ -106,7 +109,8 @@ bool IOBan::isIpBanned(uint32_t clientIP, BanInfo &banInfo) {
 }
 
 bool IOBan::isPlayerNamelocked(uint32_t playerId) {
-	std::ostringstream query;
-	query << "SELECT 1 FROM `player_namelocks` WHERE `player_id` = " << playerId;
-	return Database::getInstance().storeQuery(query.str()).get() != nullptr;
+	return Database::getInstance().storeQuery(
+		"SELECT 1 FROM `player_namelocks` WHERE `player_id` = ?",
+		{ playerId }
+	).get() != nullptr;
 }
