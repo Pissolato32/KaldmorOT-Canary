@@ -150,9 +150,7 @@ void PlayerCyclopedia::updateStoreSummary(uint8_t type, uint16_t amount, const s
 			break;
 		case Summary_t::ALL_BLESSINGS:
 			for (auto blessIt : magic_enum::enum_values<Blessings>()) {
-				// We split the formatting to avoid CI scanner false positives with the 'INSERT' keyword
-				const std::string idString = fmt::format("{}", fmt::underlying(blessIt));
-				insertValue(static_cast<uint8_t>(Summary_t::BLESSINGS), amount, idString);
+				insertValue(static_cast<uint8_t>(Summary_t::BLESSINGS), amount, fmt::format("{}", fmt::underlying(blessIt)));
 			}
 			break;
 		default:

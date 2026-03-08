@@ -1860,8 +1860,7 @@ void PlayerWheel::saveKVModGrades() const {
  * Functions for load and save player database informations
  */
 void PlayerWheel::loadDBPlayerSlotPointsOnLogin() {
-	auto resultString = fmt::format("SELECT `slot` FROM `player_wheeldata` WHERE `player_id` = {}", m_player.getGUID());
-	const DBResult_ptr &result = g_database().storeQuery(resultString);
+	const DBResult_ptr &result = g_database().storeQuery("SELECT `slot` FROM `player_wheeldata` WHERE `player_id` = ?", { m_player.getGUID() });
 	// Ignore if player not have nothing inserted in the table
 	if (!result) {
 		return;
@@ -1897,8 +1896,9 @@ bool PlayerWheel::saveDBPlayerSlotPointsOnLogout() const {
 	size_t attributesSize;
 	const char* attributes = stream.getStream(attributesSize);
 	if (attributesSize > 0) {
-		const auto query = fmt::format("{}, {}", m_player.getGUID(), g_database().escapeBlob(attributes, static_cast<uint32_t>(attributesSize)));
-		if (!insertWheelData.addRow(query)) {
+		std::ostringstream query;
+		query << m_player.getGUID() << ',' << g_database().escapeBlob(attributes, static_cast<uint32_t>(attributesSize));
+		if (!insertWheelData.addRow(query.str())) {
 			g_logger().debug("[{}] failed to insert row data", __FUNCTION__);
 			return false;
 		}
