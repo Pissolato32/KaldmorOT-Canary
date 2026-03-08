@@ -44,12 +44,12 @@ bool Database::connect(const std::string* host, const std::string* user, const s
 	bool reconnect = true;
 	mysql_options(handle, MYSQL_OPT_RECONNECT, &reconnect);
 
-	// Remove ssl verification
-	bool ssl_enabled = false;
-	mysql_options(handle, MYSQL_OPT_SSL_VERIFY_SERVER_CERT, &ssl_enabled);
+	// Enable ssl verification
+	bool ssl_verify = true;
+	mysql_options(handle, MYSQL_OPT_SSL_VERIFY_SERVER_CERT, &ssl_verify);
 
 	// connects to database
-	if (!mysql_real_connect(handle, host->c_str(), user->c_str(), password->c_str(), database->c_str(), port, sock->c_str(), 0)) {
+	if (!mysql_real_connect(handle, host->c_str(), user->c_str(), password->c_str(), database->c_str(), port, sock->c_str(), CLIENT_SSL)) {
 		g_logger().error("MySQL Error Message: {}", mysql_error(handle));
 		return false;
 	}
@@ -76,8 +76,21 @@ void Database::createDatabaseBackup(bool compress) const {
 	std::filesystem::create_directories(backupDir);
 	std::string backupFileName = fmt::format("{}backup_{}.sql", backupDir, formattedTime);
 
+	class ConfigFileGuard {
+		std::string path;
+
+	public:
+		explicit ConfigFileGuard(std::string p) :
+			path(std::move(p)) { }
+		~ConfigFileGuard() {
+			std::error_code ec;
+			std::filesystem::remove(path, ec);
+		}
+	};
+
 	// Create a temporary configuration file for MySQL credentials
 	std::string tempConfigFile = "database_backup.cnf";
+	ConfigFileGuard guard(tempConfigFile);
 	std::ofstream configFile(tempConfigFile);
 	if (configFile.is_open()) {
 		configFile << "[client]\n";
@@ -98,7 +111,6 @@ void Database::createDatabaseBackup(bool compress) const {
 	);
 
 	int result = std::system(command.c_str());
-	std::filesystem::remove(tempConfigFile);
 
 	if (result != 0) {
 		g_logger().error("Failed to create database backup using mysqldump.");
@@ -320,15 +332,18 @@ DBResult_ptr Database::storeQuery(std::string_view query) {
 	measureLock.stop();
 
 	metrics::query_latency measure(query.substr(0, 50));
-retry:
-	if (mysql_query(handle, query.data()) != 0) {
+	int retries = 10;
+	while (retries > 0 && mysql_query(handle, query.data()) != 0) {
 		g_logger().error("Query: {}", query);
 		g_logger().error("Message: {}", mysql_error(handle));
 		if (!isRecoverableError(mysql_errno(handle))) {
 			return nullptr;
 		}
 		std::this_thread::sleep_for(std::chrono::seconds(1));
-		goto retry;
+		retries--;
+	}
+	if (retries == 0) {
+		return nullptr;
 	}
 
 	// Retrieving results of query
