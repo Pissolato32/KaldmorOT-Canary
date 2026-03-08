@@ -1898,7 +1898,7 @@ bool PlayerWheel::saveDBPlayerSlotPointsOnLogout() const {
 	if (attributesSize > 0) {
 		std::ostringstream query;
 		query << m_player.getGUID() << ',' << g_database().escapeBlob(attributes, static_cast<uint32_t>(attributesSize));
-		if (!insertWheelData.addRow(query.str())) {
+		if (!insertWheelData.addRow(query)) {
 			g_logger().debug("[{}] failed to insert row data", __FUNCTION__);
 			return false;
 		}
