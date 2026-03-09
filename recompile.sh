@@ -14,6 +14,11 @@ info() {
 	echo -e "\033[1;34m[INFO]\033[0m $1"
 }
 
+# Function to print error messages
+error() {
+	echo -e "\033[1;31m[ERROR]\033[0m $1"
+}
+
 # Function to check if a command is available
 check_command() {
 	if ! command -v "$1" >/dev/null; then
@@ -118,19 +123,13 @@ build_canary() {
 	fi
 }
 
-# Function to move the generated executable
 move_executable() {
 	local executable_name="canary"
-	# No need to cd .. as we stay in root
-	if [ -e "$executable_name" ]; then
-		info "Saving old build"
-		mv ./"$executable_name" ./"$executable_name".old
-	fi
-	# Search for the executable in various possible locations
+	
+	# Search for the executable in various possible build locations
 	local search_paths=(
 		"./build/$BUILD_TYPE/bin/$executable_name"
 		"./build/$BUILD_TYPE/$executable_name"
-		"./$executable_name"
 	)
 
 	local found_path=""
@@ -142,8 +141,16 @@ move_executable() {
 	done
 
 	if [ -n "$found_path" ]; then
+		if [ -f "./$executable_name" ]; then
+			info "Saving old build"
+			mv "./$executable_name" "./$executable_name.old"
+		fi
 		info "Moving generated executable from $found_path to ./"
 		cp "$found_path" ./"$executable_name"
+		info "Build completed successfully!"
+	elif [ -f "./$executable_name" ]; then
+		# It's already in the root (maybe cmake placed it there directly)
+		info "Executable found in root directory."
 		info "Build completed successfully!"
 	else
 		error "Could not find the generated executable '$executable_name' in any known location."
