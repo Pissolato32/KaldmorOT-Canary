@@ -58,7 +58,7 @@ RUN --mount=type=cache,target=/opt/sccache \
 
 # Stage 3: execute
 FROM ubuntu:24.04 AS prod
-COPY --from=build /srv/build/build/linux-release/bin/canary /bin/canary
+COPY --from=build /srv/build/canary /bin/canary
 WORKDIR /srv/canary
 ENTRYPOINT ["/srv/canary/start.sh", "canary"]
 
