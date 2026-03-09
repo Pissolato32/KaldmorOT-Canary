@@ -388,14 +388,11 @@ void CanaryServer::loadModules() {
 
 	modulesLoadHelper(Item::items.loadFromXml(), "items.xml");
 
-	const auto datapackFolder = g_configManager().getString(DATA_DIRECTORY);
+	auto datapackFolder = g_configManager().getString(DATA_DIRECTORY);
 	logger.debug("Loading core scripts on folder: {}/", coreFolder);
 	// Load scripts from dataPack and data
-	const auto &datapackFolder = g_configManager().getString(DATA_DIRECTORY);
-	const auto &coreFolder = g_configManager().getString(CORE_DIRECTORY);
-
-	modulesLoadHelper(g_scripts().loadScripts(datapackFolder + "/scripts", false, false, true), "Loading scripts from datapak", logType);
-	modulesLoadHelper(g_scripts().loadScripts(coreFolder + "/scripts", false, false, false), "Loading scripts from core", logType);
+	modulesLoadHelper(g_scripts().loadScripts(datapackFolder + "/scripts", false, false, true), "Loading scripts from datapak");
+	modulesLoadHelper(g_scripts().loadScripts(coreFolder + "/scripts", false, false, false), "Loading scripts from core");
 
 	modulesLoadHelper((g_npcs().load(true, false)), "npclib");
 
