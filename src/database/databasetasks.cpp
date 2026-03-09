@@ -30,10 +30,6 @@ void DatabaseTasks::execute(const std::string &query, const std::function<void(D
 	});
 }
 
-void DatabaseTasks::execute(std::function<void()> task) {
-	threadPool.detach_task(std::move(task));
-}
-
 void DatabaseTasks::store(const std::string &query, const std::function<void(DBResult_ptr, bool)> &callback /* nullptr */) {
 	threadPool.detach_task([this, query, callback]() {
 		DBResult_ptr result = db.storeQuery(query);
