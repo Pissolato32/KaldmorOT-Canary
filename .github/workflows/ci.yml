@@ -60,6 +60,27 @@ jobs:
         with:
           submodules: recursive
 
+      - name: Detect C++ compiler version
+        id: compiler
+        run: |
+          # Detect available compiler
+          if command -v g++-13 &> /dev/null; then
+            echo "version=13" >> $GITHUB_OUTPUT
+          elif command -v g++-12 &> /dev/null; then
+            echo "version=12" >> $GITHUB_OUTPUT
+          else
+            echo "version=0" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build
+          # Install specific g++ version if available
+          if [ "${{ steps.compiler.outputs.version }}" != "0" ]; then
+            sudo apt-get install -y g++-${{ steps.compiler.outputs.version }} gcc-${{ steps.compiler.outputs.version }}
+          fi
+
       - name: vcpkg cache
         uses: actions/cache@v4
         with:
@@ -70,33 +91,24 @@ jobs:
           restore-keys: |
             vcpkg-${{ runner.os }}-
 
-      - name: Cache ccache
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/ccache
-          key: ccache-${{ runner.os }}-${{ github.ref_name }}-${{ github.sha }}
-          restore-keys: |
-            ccache-${{ runner.os }}-${{ github.ref_name }}-
-            ccache-${{ runner.os }}-
-
-      - name: Configure ccache
-        run: |
-          sudo apt-get install -y ccache
-          ccache --max-size=500M
-          ccache --zero-stats
-          echo "CMAKE_C_COMPILER_LAUNCHER=ccache" >> $GITHUB_ENV
-          echo "CMAKE_CXX_COMPILER_LAUNCHER=ccache" >> $GITHUB_ENV
-
-      - name: Install dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y cmake ninja-build g++-13
+      - name: sccache
+        uses: mozilla-actions/sccache-action@v0.0.5
 
       - name: Configure CMake
+        env:
+          SCCACHE_GHA_ENABLED: "true"
         run: |
-          cmake --preset linux-release-enabled-tests -DCMAKE_CXX_COMPILER=g++-13 -DCMAKE_C_COMPILER=gcc-13
+          # Use detected compiler version or default
+          CMAKE_ARGS="--preset linux-release-enabled-tests -DOPTIONS_ENABLE_SCCACHE=ON"
+          if [ "${{ steps.compiler.outputs.version }}" != "0" ]; then
+            CMAKE_ARGS="$CMAKE_ARGS -DCMAKE_CXX_COMPILER=g++-${{ steps.compiler.outputs.version }} -DCMAKE_C_COMPILER=gcc-${{ steps.compiler.outputs.version }}"
+          fi
+          cmake $CMAKE_ARGS
 
       - name: Build
+        timeout-minutes: 60
+        env:
+          SCCACHE_GHA_ENABLED: "true"
         run: |
           cmake --build build/linux-release-enabled-tests -j $(nproc)
 
@@ -104,13 +116,11 @@ jobs:
         run: |
           ctest --test-dir build/linux-release-enabled-tests --output-on-failure
 
-      - name: ccache stats
-        if: always()
-        run: ccache --show-stats
-
   build-docker:
     name: Build - Docker
     needs: [build-server]
     if: needs.build-server.result == 'success' && (github.event_name == 'push' || !github.event.pull_request.draft)
     uses: ./.github/workflows/reusable-build-docker.yml
     secrets: inherit
+    with:
+      build_preset: linux-release-enabled-tests
