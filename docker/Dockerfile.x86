@@ -41,34 +41,34 @@ RUN --mount=type=secret,id=github_token \
 	--mount=type=cache,target=/opt/vcpkg/packages \
 	--mount=type=cache,target=/root/.cache/vcpkg \
 	/bin/bash -euo pipefail -c '\
-		if [ ! -s /run/secrets/github_token ]; then \
-			echo "Missing /run/secrets/github_token" >&2; \
-			exit 1; \
-		fi; \
-		NUGET_AUTH_TOKEN=$(cat /run/secrets/github_token); \
-		NUGET_CONFIG=/tmp/nuget.config; \
-		printf "%s\n" \
-			"<?xml version=\"1.0\" encoding=\"utf-8\"?>" \
-			"<configuration>" \
-			"  <packageSources>" \
-			"    <add key=\"GitHubPackages\" value=\"${VCPKG_FEED_URL}\" />" \
-			"  </packageSources>" \
-			"  <packageSourceCredentials>" \
-			"    <GitHubPackages>" \
-			"      <add key=\"Username\" value=\"${VCPKG_FEED_USERNAME}\" />" \
-			"      <add key=\"ClearTextPassword\" value=\"${NUGET_AUTH_TOKEN}\" />" \
-			"    </GitHubPackages>" \
-			"  </packageSourceCredentials>" \
-			"  <config>" \
-			"    <add key=\"defaultPushSource\" value=\"GitHubPackages\" />" \
-			"  </config>" \
-			"</configuration>" \
-			> "${NUGET_CONFIG}"; \
-		export VCPKG_NUGET_API_KEY="${NUGET_AUTH_TOKEN}"; \
-		export VCPKG_BINARY_SOURCES="clear;nugetconfig,${NUGET_CONFIG},readwrite;nugettimeout,1200"; \
-		/opt/vcpkg/vcpkg install --x-manifest-root=/opt/vcpkg_manifest --x-install-root=/opt/vcpkg_installed --triplet=x64-linux --host-triplet=x64-linux; \
-		rm -f "${NUGET_CONFIG}"; \
-		unset NUGET_AUTH_TOKEN'
+	if [ ! -s /run/secrets/github_token ]; then \
+	echo "Missing /run/secrets/github_token" >&2; \
+	exit 1; \
+	fi; \
+	NUGET_AUTH_TOKEN=$(cat /run/secrets/github_token); \
+	NUGET_CONFIG=/tmp/nuget.config; \
+	printf "%s\n" \
+	"<?xml version=\"1.0\" encoding=\"utf-8\"?>" \
+	"<configuration>" \
+	"  <packageSources>" \
+	"    <add key=\"GitHubPackages\" value=\"${VCPKG_FEED_URL}\" />" \
+	"  </packageSources>" \
+	"  <packageSourceCredentials>" \
+	"    <GitHubPackages>" \
+	"      <add key=\"Username\" value=\"${VCPKG_FEED_USERNAME}\" />" \
+	"      <add key=\"ClearTextPassword\" value=\"${NUGET_AUTH_TOKEN}\" />" \
+	"    </GitHubPackages>" \
+	"  </packageSourceCredentials>" \
+	"  <config>" \
+	"    <add key=\"defaultPushSource\" value=\"GitHubPackages\" />" \
+	"  </config>" \
+	"</configuration>" \
+	> "${NUGET_CONFIG}"; \
+	export VCPKG_NUGET_API_KEY="${NUGET_AUTH_TOKEN}"; \
+	export VCPKG_BINARY_SOURCES="clear;nugetconfig,${NUGET_CONFIG},readwrite;nugettimeout,1200"; \
+	/opt/vcpkg/vcpkg install --x-manifest-root=/opt/vcpkg_manifest --x-install-root=/opt/vcpkg_installed --triplet=x64-linux --host-triplet=x64-linux; \
+	rm -f "${NUGET_CONFIG}"; \
+	unset NUGET_AUTH_TOKEN'
 
 # Stage 2: create build
 FROM dependencies AS build
@@ -81,9 +81,9 @@ COPY --from=dependencies /opt/vcpkg_installed /srv/vcpkg_installed
 
 ENV SCCACHE_DIR=/opt/sccache
 RUN --mount=type=cache,target=/opt/sccache \
-    export VCPKG_ROOT=/opt/vcpkg/ && \
-    cmake --preset linux-release -DOPTIONS_ENABLE_SCCACHE=ON -DTOGGLE_BIN_FOLDER=ON -DVCPKG_MANIFEST_INSTALL=OFF -DVCPKG_INSTALLED_DIR=/srv/vcpkg_installed && \
-    cmake --build --preset linux-release
+	export VCPKG_ROOT=/opt/vcpkg/ && \
+	cmake --preset linux-release -DOPTIONS_ENABLE_SCCACHE=ON -DTOGGLE_BIN_FOLDER=ON -DVCPKG_MANIFEST_INSTALL=OFF -DVCPKG_INSTALLED_DIR=/srv/vcpkg_installed && \
+	cmake --build --preset linux-release
 
 # Stage 3: load data and execute
 FROM ubuntu:24.04
@@ -93,7 +93,7 @@ ENV TZ=Etc/UTC
 VOLUME [ "/data" ]
 
 COPY --from=build /srv/build/linux-release/bin/canary /bin/canary
-COPY LICENSE *.sql key.pem /canary/
+COPY LICENSE *.sql /canary/
 COPY data /canary/data
 COPY data-canary /canary/data-canary
 COPY data-otservbr-global /canary/data-otservbr-global
