@@ -265,7 +265,7 @@ bool Database::executeQuery(const std::string &query, const std::vector<QueryPar
 		std::string str;
 		int64_t i64;
 		int32_t i32;
-		signed char b;
+		char b;
 	};
 	std::vector<ParameterData> storage(count);
 
@@ -390,7 +390,7 @@ DBResult_ptr Database::storeQuery(const std::string &query, const std::vector<Qu
 		std::string str;
 		int64_t i64;
 		int32_t i32;
-		signed char b;
+		char b;
 	};
 	std::vector<ParameterData> storage(count);
 

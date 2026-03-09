@@ -39,7 +39,7 @@ jobs:
         run: |
           # Wait for the service to be ready
           for i in {1..30}; do
-            if mysqladmin ping -h 127.0.0.1 -P ${{ job.services.mysql.ports[3306] }} -uroot -proot --silent 2>/dev/null; then
+            if mysqladmin ping -h 127.0.0.1 -P ${{ job.services.mysql.ports['3306'] }} -uroot -proot --silent 2>/dev/null; then
               echo "MySQL is ready"
               exit 0
             fi
@@ -51,4 +51,4 @@ jobs:
 
       - name: Import Canary Schema
         run: |
-          mysql -h 127.0.0.1 -P ${{ job.services.mysql.ports[3306] }} -uroot -proot canary < schema.sql -v
+          mysql -h 127.0.0.1 -P ${{ job.services.mysql.ports['3306'] }} -uroot -proot canary < schema.sql -v
