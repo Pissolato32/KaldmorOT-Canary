@@ -126,10 +126,29 @@ move_executable() {
 		info "Saving old build"
 		mv ./"$executable_name" ./"$executable_name".old
 	fi
-	info "Moving the generated executable to the canary folder directory..."
-	# Path is now relative to root: build/{preset}/bin/canary
-	cp ./build/"$BUILD_TYPE"/bin/"$executable_name" ./"$executable_name"
-	info "Build completed successfully!"
+	# Search for the executable in various possible locations
+	local search_paths=(
+		"./build/$BUILD_TYPE/bin/$executable_name"
+		"./build/$BUILD_TYPE/$executable_name"
+		"./$executable_name"
+	)
+
+	local found_path=""
+	for path in "${search_paths[@]}"; do
+		if [ -f "$path" ]; then
+			found_path="$path"
+			break
+		fi
+	done
+
+	if [ -n "$found_path" ]; then
+		info "Moving generated executable from $found_path to ./"
+		cp "$found_path" ./"$executable_name"
+		info "Build completed successfully!"
+	else
+		error "Could not find the generated executable '$executable_name' in any known location."
+		exit 1
+	fi
 }
 
 # Main function
