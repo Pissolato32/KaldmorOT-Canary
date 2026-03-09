@@ -28,6 +28,7 @@
 #include "enums/account_errors.hpp"
 #include "enums/account_group_type.hpp"
 #include "enums/account_type.hpp"
+#include "server/network/message/networkmessage.hpp"
 #include "enums/object_category.hpp"
 #include "enums/player_blessings.hpp"
 #include "enums/player_icons.hpp"

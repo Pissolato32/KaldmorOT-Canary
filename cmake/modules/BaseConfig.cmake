@@ -35,7 +35,6 @@ set(CMAKE_VERBOSE_MAKEFILE
 # *****************************************************************************
 find_package(
     CURL
-    CONFIG
     REQUIRED
 )
 find_package(OpenSSL REQUIRED)

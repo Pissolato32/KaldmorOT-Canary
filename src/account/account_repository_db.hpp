@@ -10,6 +10,7 @@
 #pragma once
 
 #include "account/account_repository.hpp"
+#include "database/database.hpp"
 
 enum class CoinType : uint8_t;
 enum class CoinTransactionType : uint8_t;

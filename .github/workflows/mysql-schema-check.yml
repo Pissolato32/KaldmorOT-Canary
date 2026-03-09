@@ -1,5 +1,6 @@
 ---
 name: MySQL Schema Check
+
 on:
   workflow_dispatch:
   pull_request:
@@ -33,11 +34,21 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-      - name: 📌 MySQL Start & init & show db
+
+      - name: Wait for MySQL to be ready
         run: |
-          sudo /etc/init.d/mysql start
-          mysql -e 'CREATE DATABASE canary;' -uroot -proot
-          mysql -e "SHOW DATABASES" -uroot -proot
+          # Wait for the service to be ready
+          for i in {1..30}; do
+            if mysqladmin ping -h 127.0.0.1 -P ${{ job.services.mysql.ports[3306] }} -uroot -proot --silent 2>/dev/null; then
+              echo "MySQL is ready"
+              exit 0
+            fi
+            echo "Waiting for MySQL... ($i/30)"
+            sleep 2
+          done
+          echo "MySQL did not become ready in time"
+          exit 1
+
       - name: Import Canary Schema
         run: |
-          mysql -uroot -proot canary < schema.sql -v
+          mysql -h 127.0.0.1 -P ${{ job.services.mysql.ports[3306] }} -uroot -proot canary < schema.sql -v

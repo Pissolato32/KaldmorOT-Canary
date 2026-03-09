@@ -13,11 +13,10 @@ services:
       - 'db-volume:/var/lib/mysql'
       - ../schema.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
-      test: ["CMD", "healthcheck.sh", "--connect"]
+      test: [ "CMD", "healthcheck.sh", "--connect" ]
       interval: 10s
       timeout: 5s
       retries: 10
-
 
   server:
     # cpuset: "0-4"
@@ -26,13 +25,17 @@ services:
       dockerfile: docker/Dockerfile.dev
       target: prod
       args:
-        VCPKG_FEED_URL: https://nuget.pkg.github.com/opentibiabr/index.json
-        VCPKG_FEED_USERNAME: opentibiabr
-      secrets:
-        - github_token
+        VCPKG_BINARY_SOURCES: ${VCPKG_BINARY_SOURCES:-}
     restart: unless-stopped
     env_file:
       - '.env'
+    environment:
+      - OT_DB_HOST=database
+      - OT_DB_PORT=3306
+      - OT_DB_USER=canary
+      - OT_DB_PASSWORD=canary
+      - OT_DB_DATABASE=otservbr-global
+      - OT_SERVER_TEST_ACCOUNTS=true
     networks:
       - canary-net
     ports:
@@ -77,10 +80,11 @@ services:
 volumes:
   db-volume:
 
+
 networks:
   canary-net:
     driver: bridge
 
-secrets:
-  github_token:
-    file: ./github_token.txt
+# secrets:
+#   github_token:
+#     file: ./github_token.txt

@@ -547,6 +547,7 @@ void IOLoginDataLoad::loadPlayerInstantSpellList(const std::shared_ptr<Player> &
 	}
 }
 
+void IOLoginDataLoad::loadPlayerInventoryItems(const std::shared_ptr<Player> &player, DBResult_ptr result) {
 	ItemsMap inventoryItems;
 	std::vector<std::shared_ptr<Item>> itemsToStartDecaying;
 	std::vector<std::shared_ptr<Item>> imbuedItemsToStartDecay;
@@ -650,6 +651,7 @@ void IOLoginDataLoad::loadRewardItems(const std::shared_ptr<Player> &player) {
 		return;
 	}
 
+	ItemsMap rewardItems;
 	if (auto result = Database::getInstance().storeQuery(
 			"SELECT `pid`, `sid`, `itemtype`, `count`, `attributes` FROM `player_rewards` WHERE `player_id` = ? ORDER BY `pid`, `sid` ASC",
 			{ player->getGUID() }

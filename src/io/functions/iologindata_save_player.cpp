@@ -22,6 +22,7 @@
 #include "creatures/players/player.hpp"
 #include "io/player_storage_repository.hpp"
 #include "kv/kv.hpp"
+#include <fmt/format.h>
 
 bool IOLoginDataSave::saveItems(const std::shared_ptr<Player> &player, const ItemBlockList &itemList, DBInsert &query_insert, PropWriteStream &propWriteStream) {
 	if (!player) {
@@ -170,9 +171,10 @@ bool IOLoginDataSave::savePlayerFirst(const std::shared_ptr<Player> &player) {
 
 	Database &db = Database::getInstance();
 
-	std::ostringstream query;
-	query << "SELECT `save` FROM `players` WHERE `id` = " << player->getGUID();
-	DBResult_ptr result = db.storeQuery(query.str());
+	DBResult_ptr result = db.storeQuery(
+		"SELECT `save` FROM `players` WHERE `id` = ?",
+		std::vector<QueryParamVariant>{ player->getGUID() }
+	);
 	if (!result) {
 		g_logger().warn("[IOLoginData::savePlayer] - Error for select result query from player: {}", player->getName());
 		return false;
@@ -248,7 +250,7 @@ bool IOLoginDataSave::savePlayerFirst(const std::shared_ptr<Player> &player) {
 				static_cast<uint16_t>(player->isDailyReward), player->magLevel, player->mana, player->manaMax, player->manaSpent, static_cast<uint16_t>(player->soul), (player->town ? player->town->getID() : 0),
 				player->getLoginPosition().getX(), player->getLoginPosition().getY(), player->getLoginPosition().getZ(), player->getPreyCards(), player->getTaskHuntingPoints(), player->getBossPoints(),
 				player->getForgeDusts(), player->getForgeDustLevel(), static_cast<uint16_t>(player->isRandomMounted()), (player->capacity / 100), static_cast<uint16_t>(player->sex), player->lastLoginSaved, player->lastIP,
-				db.asBlob(attributes, static_cast<uint32_t>(attributesSize)), db.asBlob(animus_mastery, static_cast<uint32_t>(animusMasterySize)), skullTime, static_cast<int64_t>(skull), player->getLastLogout(), player->bankBalance,
+				std::string(reinterpret_cast<const char*>(attributes), attributesSize), std::string(reinterpret_cast<const char*>(animusMastery), animusMasterySize), skullTime, static_cast<int64_t>(skull), player->getLastLogout(), player->bankBalance,
 				player->getOfflineTrainingTime() / 1000, std::to_string(player->getOfflineTrainingSkill()), player->getStaminaMinutes(),
 				player->skills[SKILL_FIST].level, player->skills[SKILL_FIST].tries, player->skills[SKILL_CLUB].level, player->skills[SKILL_CLUB].tries, player->skills[SKILL_SWORD].level, player->skills[SKILL_SWORD].tries,
 				player->skills[SKILL_AXE].level, player->skills[SKILL_AXE].tries, player->skills[SKILL_DISTANCE].level, player->skills[SKILL_DISTANCE].tries, player->skills[SKILL_SHIELD].level, player->skills[SKILL_SHIELD].tries,
@@ -281,8 +283,6 @@ bool IOLoginDataSave::savePlayerStash(const std::shared_ptr<Player> &player) {
 		return false;
 	}
 
-	query.str("");
-
 	DBInsert stashQuery("INSERT INTO `player_stash` (`player_id`,`item_id`,`item_count`) VALUES ");
 	for (const auto &[itemId, itemCount] : player->getStashItems()) {
 		const ItemType &itemType = Item::items[itemId];
@@ -296,8 +296,7 @@ bool IOLoginDataSave::savePlayerStash(const std::shared_ptr<Player> &player) {
 			continue;
 		}
 
-		query << player->getGUID() << ',' << itemId << ',' << itemCount;
-		if (!stashQuery.addRow(query)) {
+		if (!stashQuery.addRow(fmt::format("{},{},{}", player->getGUID(), itemId, itemCount))) {
 			return false;
 		}
 	}
@@ -322,12 +321,9 @@ bool IOLoginDataSave::savePlayerSpells(const std::shared_ptr<Player> &player) {
 		return false;
 	}
 
-	query.str("");
-
 	DBInsert spellsQuery("INSERT INTO `player_spells` (`player_id`, `name` ) VALUES ");
 	for (const std::string &spellName : player->learnedInstantSpellList) {
-		query << player->getGUID() << ',' << db.escapeString(spellName);
-		if (!spellsQuery.addRow(query)) {
+		if (!spellsQuery.addRow(fmt::format("{},{}", player->getGUID(), db.escapeString(spellName)))) {
 			return false;
 		}
 	}
@@ -352,12 +348,9 @@ bool IOLoginDataSave::savePlayerKills(const std::shared_ptr<Player> &player) {
 		return false;
 	}
 
-	query.str("");
-
 	DBInsert killsQuery("INSERT INTO `player_kills` (`player_id`, `target`, `time`, `unavenged`) VALUES");
 	for (const auto &kill : player->unjustifiedKills) {
-		query << player->getGUID() << ',' << kill.target << ',' << kill.time << ',' << kill.unavenged;
-		if (!killsQuery.addRow(query)) {
+		if (!killsQuery.addRow(fmt::format("{},{},{},{}", player->getGUID(), kill.target, kill.time, kill.unavenged))) {
 			return false;
 		}
 	}
@@ -401,7 +394,7 @@ bool IOLoginDataSave::savePlayerBestiarySystem(const std::shared_ptr<Player> &pl
 			{
 				player->charmPoints, player->minorCharmEchoes, player->maxCharmPoints, player->maxMinorCharmEchoes,
 				(player->charmExpansion ? 1 : 0), player->UsedRunesBit, player->UnlockedRunesBit,
-				db.asBlob(charmsList, static_cast<uint32_t>(charmsSize)), db.asBlob(trackerList, static_cast<uint32_t>(trackerSize)),
+				std::string(reinterpret_cast<const char*>(charmsList), charmsSize), std::string(reinterpret_cast<const char*>(trackerList), trackerSize),
 				player->getGUID()
 			}
 		)) {
@@ -426,8 +419,6 @@ bool IOLoginDataSave::savePlayerItem(const std::shared_ptr<Player> &player) {
 		g_logger().warn("[IOLoginData::savePlayer] - Error delete query 'player_items' from player: {}", player->getName());
 		return false;
 	}
-	std::ostringstream query;
-
 	DBInsert itemsQuery("INSERT INTO `player_items` (`player_id`, `pid`, `sid`, `itemtype`, `count`, `attributes`) VALUES ");
 
 	ItemBlockList itemList;
@@ -461,8 +452,6 @@ bool IOLoginDataSave::savePlayerDepotItems(const std::shared_ptr<Player> &player
 			)) {
 			return false;
 		}
-
-		query.str("");
 
 		DBInsert depotQuery("INSERT INTO `player_depotitems` (`player_id`, `pid`, `sid`, `itemtype`, `count`, `attributes`) VALUES ");
 
@@ -530,7 +519,6 @@ bool IOLoginDataSave::savePlayerInbox(const std::shared_ptr<Player> &player) {
 		return false;
 	}
 
-	query.str("");
 	DBInsert inboxQuery("INSERT INTO `player_inboxitems` (`player_id`, `pid`, `sid`, `itemtype`, `count`, `attributes`) VALUES ");
 
 	for (const auto &item : player->getInbox()->getItemList()) {
@@ -553,20 +541,8 @@ bool IOLoginDataSave::savePlayerPreyClass(const std::shared_ptr<Player> &player)
 		DBInsert preyQuery("INSERT INTO `player_prey` (`player_id`, `slot`, `state`, `raceid`, `option`, `bonus_type`, `bonus_rarity`, `bonus_percentage`, `bonus_time`, `free_reroll`, `monster_list`) VALUES ");
 		preyQuery.upsert({ "state", "raceid", "option", "bonus_type", "bonus_rarity", "bonus_percentage", "bonus_time", "free_reroll", "monster_list" });
 
-		std::ostringstream query;
 		for (uint8_t slotId = PreySlot_First; slotId <= PreySlot_Last; slotId++) {
 			if (const auto &slot = player->getPreySlotById(static_cast<PreySlot_t>(slotId))) {
-				query << player->getGUID() << ", "
-					  << static_cast<uint16_t>(slot->id) << ", "
-					  << static_cast<uint16_t>(slot->state) << ", "
-					  << slot->selectedRaceId << ", "
-					  << static_cast<uint16_t>(slot->option) << ", "
-					  << static_cast<uint16_t>(slot->bonus) << ", "
-					  << static_cast<uint16_t>(slot->bonusRarity) << ", "
-					  << slot->bonusPercentage << ", "
-					  << slot->bonusTimeLeft << ", "
-					  << slot->freeRerollTimeStamp << ", ";
-
 				PropWriteStream propPreyStream;
 				[[maybe_unused]] auto lambda = std::ranges::for_each(slot->raceIdList, [&propPreyStream](uint16_t raceId) {
 					propPreyStream.write<uint16_t>(raceId);
@@ -574,9 +550,19 @@ bool IOLoginDataSave::savePlayerPreyClass(const std::shared_ptr<Player> &player)
 
 				size_t preySize;
 				const char* preyList = propPreyStream.getStream(preySize);
-				query << Database::getInstance().escapeBlob(preyList, static_cast<uint32_t>(preySize));
 
-				if (!preyQuery.addRow(query)) {
+				if (!preyQuery.addRow(fmt::format("{}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}",
+												  player->getGUID(),
+												  static_cast<uint16_t>(slot->id),
+												  static_cast<uint16_t>(slot->state),
+												  slot->selectedRaceId,
+												  static_cast<uint16_t>(slot->option),
+												  static_cast<uint16_t>(slot->bonus),
+												  static_cast<uint16_t>(slot->bonusRarity),
+												  slot->bonusPercentage,
+												  slot->bonusTimeLeft,
+												  slot->freeRerollTimeStamp,
+												  Database::getInstance().escapeBlob(preyList, static_cast<uint32_t>(preySize))))) {
 					g_logger().warn("[IOLoginData::savePlayer] - Error adding row to prey slot data query for player: {}", player->getName());
 					return false;
 				}
@@ -601,19 +587,8 @@ bool IOLoginDataSave::savePlayerTaskHuntingClass(const std::shared_ptr<Player> &
 		DBInsert taskHuntingQuery("INSERT INTO `player_taskhunt` (`player_id`, `slot`, `state`, `raceid`, `upgrade`, `rarity`, `kills`, `disabled_time`, `free_reroll`, `monster_list`) VALUES ");
 		taskHuntingQuery.upsert({ "state", "raceid", "upgrade", "rarity", "kills", "disabled_time", "free_reroll", "monster_list" });
 
-		std::ostringstream query;
 		for (uint8_t slotId = PreySlot_First; slotId <= PreySlot_Last; slotId++) {
 			if (const auto &slot = player->getTaskHuntingSlotById(static_cast<PreySlot_t>(slotId))) {
-				query << player->getGUID() << ", "
-					  << static_cast<uint16_t>(slot->id) << ", "
-					  << static_cast<uint16_t>(slot->state) << ", "
-					  << slot->selectedRaceId << ", "
-					  << (slot->upgrade ? 1 : 0) << ", "
-					  << static_cast<uint16_t>(slot->rarity) << ", "
-					  << slot->currentKills << ", "
-					  << slot->disabledUntilTimeStamp << ", "
-					  << slot->freeRerollTimeStamp << ", ";
-
 				PropWriteStream propTaskHuntingStream;
 				[[maybe_unused]] auto lambda = std::ranges::for_each(slot->raceIdList, [&propTaskHuntingStream](uint16_t raceId) {
 					propTaskHuntingStream.write<uint16_t>(raceId);
@@ -621,9 +596,18 @@ bool IOLoginDataSave::savePlayerTaskHuntingClass(const std::shared_ptr<Player> &
 
 				size_t taskHuntingSize;
 				const char* taskHuntingList = propTaskHuntingStream.getStream(taskHuntingSize);
-				query << Database::getInstance().escapeBlob(taskHuntingList, static_cast<uint32_t>(taskHuntingSize));
 
-				if (!taskHuntingQuery.addRow(query)) {
+				if (!taskHuntingQuery.addRow(fmt::format("{}, {}, {}, {}, {}, {}, {}, {}, {}, {}",
+														 player->getGUID(),
+														 static_cast<uint16_t>(slot->id),
+														 static_cast<uint16_t>(slot->state),
+														 slot->selectedRaceId,
+														 (slot->upgrade ? 1 : 0),
+														 static_cast<uint16_t>(slot->rarity),
+														 slot->currentKills,
+														 slot->disabledUntilTimeStamp,
+														 slot->freeRerollTimeStamp,
+														 Database::getInstance().escapeBlob(taskHuntingList, static_cast<uint32_t>(taskHuntingSize))))) {
 					g_logger().warn("[IOLoginData::savePlayer] - Error adding row to task hunting slot data query for player: {}", player->getName());
 					return false;
 				}
@@ -660,7 +644,6 @@ bool IOLoginDataSave::savePlayerBosstiary(const std::shared_ptr<Player> &player)
 		return false;
 	}
 
-	query.str("");
 	DBInsert insertQuery("INSERT INTO `player_bosstiary` (`player_id`, `bossIdSlotOne`, `bossIdSlotTwo`, `removeTimes`, `tracker`) VALUES");
 
 	// Bosstiary tracker
@@ -674,14 +657,13 @@ bool IOLoginDataSave::savePlayerBosstiary(const std::shared_ptr<Player> &player)
 	}
 	size_t size;
 	const char* chars = stream.getStream(size);
-	// Append query informations
-	query << player->getGUID() << ','
-		  << player->getSlotBossId(1) << ','
-		  << player->getSlotBossId(2) << ','
-		  << std::to_string(player->getRemoveTimes()) << ','
-		  << Database::getInstance().escapeBlob(chars, static_cast<uint32_t>(size));
 
-	if (!insertQuery.addRow(query)) {
+	if (!insertQuery.addRow(fmt::format("{},{},{},{},{}",
+										player->getGUID(),
+										player->getSlotBossId(1),
+										player->getSlotBossId(2),
+										player->getRemoveTimes(),
+										Database::getInstance().escapeBlob(chars, static_cast<uint32_t>(size))))) {
 		return false;
 	}
 

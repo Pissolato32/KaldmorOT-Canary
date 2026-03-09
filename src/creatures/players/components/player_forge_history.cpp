@@ -81,7 +81,7 @@ bool PlayerForgeHistory::save() {
 			}
 			placeholders += '?';
 		}
-		std::vector<DatabaseVariant> params;
+		std::vector<QueryParamVariant> params;
 		params.reserve(m_removedHistoryIds.size() + 1);
 		params.emplace_back(playerGUID);
 		for (auto rid : m_removedHistoryIds) {

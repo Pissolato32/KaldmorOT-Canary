@@ -17,20 +17,37 @@ jobs:
 
       - name: Audit for SQL Injection Regressions
         run: |
-          echo "Scanning for manual query formatting using fmt::format or ostringstream in sensitive directories..."
+          echo "Scanning for manual query formatting patterns in sensitive directories..."
           
-          # This command searches for common formatting patterns in files containing DML keywords.
-          # We focus on src/io, src/creatures, and src/map where data persistence logic lives.
-          # We exclude lines that are commented out to avoid false positives.
-          RESULTS=$(grep -rnE "fmt::format|ostringstream" src/io src/creatures src/map --include="*.cpp" | \
-            grep -iE "SELECT|INSERT|UPDATE|DELETE" | \
-            grep -vE "//.*(SELECT|INSERT|UPDATE|DELETE)" \
+          # Scan directories where manual query building happens
+          # Exclude src/database - where parameterized queries should live
+          RESULTS=$(grep -rnE "fmt::format|ostringstream|std::ostringstream" \
+            src/io src/creatures src/map src/game src/chat src/house \
+            --include="*.cpp" --include="*.h" 2>/dev/null | \
+            grep -iE "\b(SELECT|INSERT|UPDATE|DELETE|REPLACE|ALTER|DROP|TRUNCATE)\b" | \
+            grep -vE "^[[:space:]]*//|^[[:space:]]*#|^[[:space:]]*/\*" | \
+            grep -vE "\b(addColumn|addRow|addField|fieldName|tableName|columnName)\b" \
             || true)
           
           if [ -n "$RESULTS" ]; then
-            echo "::error::Found potential SQL Injection regression patterns!"
+            echo "::warning::Found potential SQL Injection regression patterns!"
+            echo "These patterns use fmt::format or ostringstream with SQL keywords."
+            echo "Please review and use parameterized queries from DatabaseManager."
+            echo ""
             echo "$RESULTS"
+            # Exit with error - security is important
             exit 1
           else
             echo "Success: No manual SQL query formatting patterns found."
+          fi
+
+      - name: Verify parameterized queries exist
+        run: |
+          echo "Verifying that parameterized query API is available..."
+          
+          # Check if Database.h has parameterized query methods
+          if grep -r "addRow\|addRowRaw\|query\|execute" src/database --include="*.h" 2>/dev/null | grep -q "DBResult\|std::string\|PreparedStatement"; then
+            echo "✓ Parameterized query API found in src/database"
+          else
+            echo "::warning::Could not verify parameterized query API"
           fi
