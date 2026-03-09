@@ -2,6 +2,11 @@ name: Reusable Docker Build
 
 on:
   workflow_call:
+    inputs:
+      build_preset:
+        type: string
+        default: linux-release-enabled-tests
+        description: "CMake preset to use for building"
 
 permissions:
   contents: read
@@ -36,6 +41,16 @@ jobs:
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Check NuGet token availability
+        id: check-token
+        run: |
+          if [ -n "${{ secrets.VCPKG_PACKAGES_TOKEN }}" ]; then
+            echo "available=true" >> $GITHUB_OUTPUT
+          else
+            echo "available=false" >> $GITHUB_OUTPUT
+            echo "::warning::VCPKG_PACKAGES_TOKEN not set, using fallback. NuGet cache may not work."
+          fi
+
       - name: Build and push (main)
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: docker/build-push-action@v5
@@ -44,6 +59,7 @@ jobs:
           file: docker/Dockerfile.x86
           push: true
           build-args: |
+            BUILD_PRESET=${{ inputs.build_preset }}
             VCPKG_FEED_URL=https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json
             VCPKG_FEED_USERNAME=${{ github.repository_owner }}
             VCPKG_BINARY_SOURCES=clear;nuget,https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json,read;nugettimeout,1200
@@ -64,6 +80,7 @@ jobs:
           push: false
           outputs: type=local,dest=artifacts/docker-rootfs
           build-args: |
+            BUILD_PRESET=${{ inputs.build_preset }}
             VCPKG_FEED_URL=https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json
             VCPKG_FEED_USERNAME=${{ github.repository_owner }}
             VCPKG_BINARY_SOURCES=clear;nuget,https://nuget.pkg.github.com/${{ github.repository_owner }}/index.json,read;nugettimeout,1200

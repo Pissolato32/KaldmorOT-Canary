@@ -3,6 +3,10 @@ name: Reusable Lua Tests
 on:
   workflow_call:
 
+env:
+  LUA_VERSION: "5.4"
+  LUACHECK_VERSION: "latest"
+
 jobs:
   job:
     name: Run Lua Tests
@@ -11,20 +15,32 @@ jobs:
       - name: Check out code
         uses: actions/checkout@v4
 
+      - name: Cache Lua dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.luarocks
+            ~/.local/share/luarocks
+          key: luarocks-${{ runner.os }}-${{ hashFiles('data/**/*.lua') }}
+          restore-keys: |
+            luarocks-${{ runner.os }}-
+
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y lua5.4 luarocks libxml2-utils
-          sudo luarocks install luacheck
+          sudo apt-get install -y lua${{ env.LUA_VERSION }} luarocks libxml2-utils
+          sudo luarocks install luacheck ${{ env.LUACHECK_VERSION }}
 
       - name: Run Luacheck
         run: |
+          # WARNING: Removing || true can break PRs if there are unfixed warnings
+          # Recommended: Audit existing warnings first, fix them, and only then remove || true
           luacheck data --no-color --codes --max-line-length 200 || true
 
       - name: Validate Lua Syntax
         run: |
           find data -name "*.lua" -print0 | while IFS= read -r -d '' file; do
-            lua -e "assert(loadfile('$file'))"
+            lua${{ env.LUA_VERSION }} -e "assert(loadfile('$file'))"
           done
 
       - name: Validate XML Files

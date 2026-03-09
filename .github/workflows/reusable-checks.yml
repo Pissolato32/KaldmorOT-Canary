@@ -26,6 +26,15 @@ jobs:
         run: |
           sudo apt-get update && sudo apt-get install -y libluajit-5.1-dev luajit lua-check cppcheck libxml2-utils python3-pip
 
+      - name: Detect C++ standard
+        id: cpp-standard
+        run: |
+          # Detect C++ standard from CMakeLists.txt
+          # Look for CMAKE_CXX_STANDARD or CMAKE_CXX_STANDARD_REQUIRED
+          STANDARD=$(grep -r "CMAKE_CXX_STANDARD" CMakeLists.txt 2>/dev/null | grep -oP '\d+' | tail -1 || echo "20")
+          echo "standard=$STANDARD" >> $GITHUB_OUTPUT
+          echo "Detected C++ standard: $STANDARD"
+
       - name: Run clang format lint
         uses: DoozyX/clang-format-lint-action@v0.17
         with:
@@ -68,16 +77,23 @@ jobs:
           REVIEWDOG_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REVIEWDOG_REPORTER: github-pr-check
         run: |
+          # Lua syntax check - fail on error
           reviewdog -reporter="${REVIEWDOG_REPORTER}" -runners=luac -fail-level=error -filter-mode=added
+          
+          # Luacheck - warn but don't fail (warnings only)
           reviewdog -reporter="${REVIEWDOG_REPORTER}" -runners=luacheck -filter-mode=added || true
+          
+          # XML validation - fail on error
           reviewdog -reporter="${REVIEWDOG_REPORTER}" -runners=xmllint -fail-level=error -filter-mode=added
+          
+          # C++ static analysis with detected standard
           cppcheck \
             --enable=warning,style,performance,portability \
             --inconclusive \
-            --std=c++20 \
+            --std=c++${{ steps.cpp-standard.outputs.standard }} \
             --inline-suppr \
             --error-exitcode=1 \
-            src | reviewdog -f=cppcheck -reporter="${REVIEWDOG_REPORTER}" -filter-mode=added || true
+            src 2>&1 | reviewdog -f=cppcheck -reporter="${REVIEWDOG_REPORTER}" -filter-mode=added || true
 
       - name: Run yamllint
         uses: reviewdog/action-yamllint@v1.6.1
