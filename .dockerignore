@@ -9,7 +9,8 @@
 .agents
 
 # Docker
-docker
+docker/.env*
+docker/build.log
 
 # Projetos externos
 vcproj

@@ -21,3 +21,4 @@ end
 enterThalasTeleport:type("stepin")
 enterThalasTeleport:uid(50135)
 enterThalasTeleport:register()
+

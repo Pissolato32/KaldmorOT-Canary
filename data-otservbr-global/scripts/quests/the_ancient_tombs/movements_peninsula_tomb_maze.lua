@@ -14,3 +14,4 @@ end
 peninsulaTombMaze:type("stepin")
 peninsulaTombMaze:aid(12101)
 peninsulaTombMaze:register()
+

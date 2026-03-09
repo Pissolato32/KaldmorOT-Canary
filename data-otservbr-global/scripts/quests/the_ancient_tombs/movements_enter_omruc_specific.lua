@@ -24,3 +24,4 @@ end
 movements_enter_omruc_room:type("stepin")
 movements_enter_omruc_room:uid(40086)
 movements_enter_omruc_room:register()
+

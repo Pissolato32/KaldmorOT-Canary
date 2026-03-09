@@ -61,3 +61,4 @@ end
 tombCoalBasin:type("additem")
 tombCoalBasin:id(2114)
 tombCoalBasin:register()
+

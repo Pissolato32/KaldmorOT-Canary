@@ -43,3 +43,4 @@ end
 craftHelmet:type("additem")
 craftHelmet:aid(40040)
 craftHelmet:register()
+

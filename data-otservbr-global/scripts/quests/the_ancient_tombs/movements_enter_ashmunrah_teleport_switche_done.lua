@@ -21,3 +21,4 @@ end
 enterAshmunrahTeleport:type("stepin")
 enterAshmunrahTeleport:uid(50138)
 enterAshmunrahTeleport:register()
+

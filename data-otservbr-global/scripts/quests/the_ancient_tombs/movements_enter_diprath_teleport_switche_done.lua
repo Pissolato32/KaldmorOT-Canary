@@ -21,3 +21,4 @@ end
 enterDiprathTeleport:type("stepin")
 enterDiprathTeleport:uid(50137)
 enterDiprathTeleport:register()
+
