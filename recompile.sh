@@ -84,16 +84,18 @@ build_canary() {
 	echo "0" >$temp_file
 
 	# Build using preset from root
-	cmake --build --preset "$BUILD_TYPE" 2>&1 > >(while IFS= read -r line; do
+	cmake --build --preset "$BUILD_TYPE" --verbose 2>&1 | while IFS= read -r line; do
 		echo "$line" >>build_log.txt
 		if [[ $line =~ ^\[([0-9]+)/([0-9]+)\].* ]]; then
 			current_step=${BASH_REMATCH[1]}
 			total_steps=${BASH_REMATCH[2]}
 			progress=$((current_step * 100 / total_steps))
-			printf "\r\033[1;32m[INFO]\033[0m Progress build: [%3d%%]" $progress
+			printf "\r\033[1;32m[INFO]\033[0m Progress build: [%3d%%] %s" $progress "${line#*] }"
 			echo "1" >$temp_file
+		else
+			echo "$line"
 		fi
-	done) || build_status=1
+	done || build_status=1
 
 	global_beats=$(cat $temp_file)
 	rm $temp_file
