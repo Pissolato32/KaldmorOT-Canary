@@ -215,6 +215,22 @@ bool Database::isRecoverableError(unsigned int error) {
 	return error == CR_SERVER_LOST || error == CR_SERVER_GONE_ERROR || error == CR_CONN_HOST_ERROR || error == 1053 /*ER_SERVER_SHUTDOWN*/ || error == CR_CONNECTION_ERROR;
 }
 
+bool Database::executeQuery(std::string_view query) {
+	if (!handle) {
+		g_logger().error("Database not initialized!");
+		return false;
+	}
+
+	g_logger().trace("Executing Query: {}", query);
+
+	metrics::lock_latency measureLock("database");
+	std::scoped_lock lock { databaseLock };
+	measureLock.stop();
+
+	metrics::query_latency measure(query.substr(0, 50));
+	return retryQuery(query, 10);
+}
+
 bool Database::retryQuery(std::string_view query, int retries) {
 	while (retries > 0 && mysql_query(handle, query.data()) != 0) {
 		g_logger().error("Query: {}", query.substr(0, 256));
@@ -265,7 +281,7 @@ bool Database::executeQuery(const std::string &query, const std::vector<QueryPar
 		std::string str;
 		int64_t i64;
 		int32_t i32;
-		char b;
+		my_bool b;
 	};
 	std::vector<ParameterData> storage(count);
 
@@ -390,7 +406,7 @@ DBResult_ptr Database::storeQuery(const std::string &query, const std::vector<Qu
 		std::string str;
 		int64_t i64;
 		int32_t i32;
-		char b;
+		my_bool b;
 	};
 	std::vector<ParameterData> storage(count);
 
