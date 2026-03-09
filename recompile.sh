@@ -31,6 +31,18 @@ check_architecture() {
 	fi
 }
 
+# Function to check if sccache is available
+check_sccache() {
+	if command -v sccache >/dev/null; then
+		SCCACHE_AVAILABLE=1
+		info "sccache detected and will be used to speed up the build."
+		# Ensure sccache is started
+		sccache --start-server >/dev/null 2>&1 || true
+	else
+		SCCACHE_AVAILABLE=0
+	fi
+}
+
 # Function to configure Canary
 setup_canary() {
 	# Check if cmake has already been configured for the real binary directory
@@ -48,8 +60,14 @@ build_canary() {
 		if [[ $ARCHITECTUREVALUE == 1 ]]; then
 			export VCPKG_FORCE_SYSTEM_BINARIES=1
 		fi
+
+		local cmake_args=("-DCMAKE_TOOLCHAIN_FILE=$VCPKG_PATH" "." "--preset" "$BUILD_TYPE")
+		if [[ $SCCACHE_AVAILABLE == 1 ]]; then
+			cmake_args+=("-DOPTIONS_ENABLE_SCCACHE=ON")
+		fi
+
 		# Configure from root using . as source dir
-		cmake -DCMAKE_TOOLCHAIN_FILE="$VCPKG_PATH" . --preset "$BUILD_TYPE" >cmake_log.txt 2>&1 || {
+		cmake "${cmake_args[@]}" >cmake_log.txt 2>&1 || {
 			cat cmake_log.txt
 			return 1
 		}
@@ -79,6 +97,12 @@ build_canary() {
 
 	global_beats=$(cat $temp_file)
 	rm $temp_file
+
+	if [[ $SCCACHE_AVAILABLE == 1 ]]; then
+		echo
+		info "sccache build statistics:"
+		sccache --show-stats
+	fi
 
 	if [[ $build_status -eq 0 ]]; then
 		if [[ $global_beats == 1 ]]; then
@@ -110,7 +134,7 @@ move_executable() {
 main() {
 	check_command "cmake"
 	check_architecture
-	setup_canary
+	check_sccache
 
 	if build_canary; then
 		move_executable
