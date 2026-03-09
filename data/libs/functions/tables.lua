@@ -98,10 +98,6 @@ function table.serialize(x, recur)
 	end
 end
 
-function table.unserialize(str)
-	return loadstring("return " .. str)()
-end
-
 function table.shallowCopy(oldTable)
 	local newTable = {}
 	for k, v in pairs(oldTable) do

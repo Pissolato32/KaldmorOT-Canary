@@ -164,9 +164,7 @@ bool Actions::registerLuaEvent(const std::shared_ptr<Action> &action) {
 			__FUNCTION__,
 			action->getScriptInterface()->getLoadingScriptName()
 		);
-		return false;
 	}
-	g_logger().debug("[{}] missing or incorrect script: {}", __FUNCTION__, action->getScriptInterface()->getLoadingScriptName());
 	return false;
 }
 
