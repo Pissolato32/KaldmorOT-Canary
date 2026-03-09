@@ -72,8 +72,7 @@ build_canary() {
 		fi
 
 		# Configure from root using . as source dir
-		cmake "${cmake_args[@]}" >cmake_log.txt 2>&1 || {
-			cat cmake_log.txt
+		cmake "${cmake_args[@]}" || {
 			return 1
 		}
 	fi
