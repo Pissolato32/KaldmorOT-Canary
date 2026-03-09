@@ -40,11 +40,8 @@ RUN --mount=type=secret,id=github_token \
 	--mount=type=cache,target=/opt/vcpkg/buildtrees \
 	--mount=type=cache,target=/opt/vcpkg/packages \
 	--mount=type=cache,target=/root/.cache/vcpkg \
-	/bin/bash -euo pipefail -c '\
-	if [ ! -s /run/secrets/github_token ]; then \
-	echo "Missing /run/secrets/github_token" >&2; \
-	exit 1; \
-	fi; \
+	/bin/bash -euo pipefail -c \
+	if [ -s /run/secrets/github_token ]; then \
 	NUGET_AUTH_TOKEN=$(cat /run/secrets/github_token); \
 	NUGET_CONFIG=/tmp/nuget.config; \
 	printf "%s\n" \
@@ -68,7 +65,11 @@ RUN --mount=type=secret,id=github_token \
 	export VCPKG_BINARY_SOURCES="clear;nugetconfig,${NUGET_CONFIG},readwrite;nugettimeout,1200"; \
 	/opt/vcpkg/vcpkg install --x-manifest-root=/opt/vcpkg_manifest --x-install-root=/opt/vcpkg_installed --triplet=x64-linux --host-triplet=x64-linux; \
 	rm -f "${NUGET_CONFIG}"; \
-	unset NUGET_AUTH_TOKEN'
+	unset NUGET_AUTH_TOKEN; \
+	else \
+	echo "No GitHub token provided, building from source..."; \
+	/opt/vcpkg/vcpkg install --x-manifest-root=/opt/vcpkg_manifest --x-install-root=/opt/vcpkg_installed --triplet=x64-linux --host-triplet=x64-linux; \
+	fi'
 
 # Stage 2: create build
 FROM dependencies AS build
