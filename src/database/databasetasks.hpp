@@ -28,6 +28,7 @@ public:
 	void execute(const std::string &query, const std::function<void(DBResult_ptr, bool)> &callback = nullptr);
 
 	template <typename F>
+		requires (!std::is_convertible_v<F, std::string>)
 	void execute(F &&task) {
 		threadPool.detach_task(std::forward<F>(task));
 	}
