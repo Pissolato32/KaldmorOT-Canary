@@ -24,3 +24,4 @@ end
 movements_enter_mahrdis_room:type("stepin")
 movements_enter_mahrdis_room:uid(40084)
 movements_enter_mahrdis_room:register()
+

@@ -4,7 +4,6 @@ if(NOT CANARY_BUILD_TESTS)
 endif()
 
 log_option_enabled("tests")
-enable_testing()
 
 find_package(
     GTest

@@ -1,0 +1,77 @@
+# Git
+.git
+.gitattributes
+
+# GitHub
+.github
+
+# Agentes
+.agents
+
+# Docker
+docker/.env*
+docker/build.log
+
+# Projetos externos
+vcproj
+
+# Testes (executados separadamente)
+tests
+
+# Documentação
+docs
+plans
+
+# Métricas
+metrics
+
+# Análise de código
+sonar-project.properties
+
+# Documentação
+*.md
+Jenkinsfile
+
+# Arquivos ocultos (exceto os necessários)
+.*
+!.clang-format
+!.cmake-format
+!.cmake-lint
+!.editorconfig
+!.luarc.json
+!.reviewdog.yml
+!.yamllint.yaml
+
+# Debug
+gdb_debug
+client_assertions.txt
+
+# Builds locais
+*.log
+build_*
+
+# CMake e Build
+# (Removido bloqueio de arquivos essenciais para o build)
+
+# vcpkg
+# (Removido bloqueio de vcpkg.json)
+
+# Certificados e chaves
+key.pem
+
+# Database
+schema.sql
+
+# Scripts de inicialização
+start.sh
+start_gdb.sh
+build_test.sh
+
+# Recursos
+canary.rc
+GitVersion.yml
+package.json
+
+# Configuração
+config.lua
+.kilocode

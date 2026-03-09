@@ -196,4 +196,7 @@ endif()
 # Add project
 # *****************************************************************************
 add_subdirectory(src)
-add_subdirectory(tests)
+
+if(CANARY_BUILD_TESTS)
+    add_subdirectory(tests)
+endif()

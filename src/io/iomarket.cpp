@@ -231,11 +231,13 @@ void IOMarket::processExpiredOffers(const DBResult_ptr &result, bool) {
 void IOMarket::checkExpiredOffers() {
 	const time_t lastExpireDate = getTimeNow() - g_configManager().getNumber(MARKET_OFFER_DURATION);
 
-	g_databaseTasks().store(
+	DBResult_ptr result = Database::getInstance().storeQuery(
 		"SELECT `id`, `amount`, `price`, `itemtype`, `player_id`, `sale`, `tier` FROM `market_offers` WHERE `created` <= ?",
-		{ static_cast<int64_t>(lastExpireDate) },
-		IOMarket::processExpiredOffers
+		{ static_cast<int64_t>(lastExpireDate) }
 	);
+	if (result) {
+		IOMarket::processExpiredOffers(result, true);
+	}
 
 	int32_t checkExpiredMarketOffersEachMinutes = g_configManager().getNumber(CHECK_EXPIRED_MARKET_OFFERS_EACH_MINUTES);
 	if (checkExpiredMarketOffersEachMinutes <= 0) {
@@ -308,8 +310,22 @@ void IOMarket::deleteOffer(uint32_t offerId) {
 	);
 }
 
+/**
+ * Registers a transaction in the market history.
+ *
+ * NOTE: This function uses synchronous execution. For high-volume servers (>500 concurrent players),
+ * consider these optimizations if this becomes a bottleneck:
+ *
+ * Option 1: Async with thread-local parameters
+ *   - Add parameter support to DatabaseTasks (see databasetasks.hpp)
+ *   - Use thread_local std::vector<QueryParamVariant> to avoid contention
+ *
+ * Option 2: Batch inserts
+ *   - Queue multiple history entries and insert in a single query:
+ *   - INSERT INTO market_history (...) VALUES (...), (...), (...)
+ */
 void IOMarket::appendHistory(uint32_t playerId, MarketAction_t type, uint16_t itemId, uint16_t amount, uint64_t price, time_t timestamp, uint8_t tier, MarketOfferState_t state) {
-	g_databaseTasks().execute(
+	Database::getInstance().executeQuery(
 		"INSERT INTO `market_history` (`player_id`, `sale`, `itemtype`, `amount`, `price`, `expires_at`, `inserted`, `state`, `tier`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
 		{ playerId, static_cast<uint32_t>(type), static_cast<uint32_t>(itemId), static_cast<uint32_t>(amount), price, static_cast<int64_t>(timestamp), static_cast<int64_t>(getTimeNow()), static_cast<uint32_t>(state), static_cast<uint32_t>(tier) }
 	);

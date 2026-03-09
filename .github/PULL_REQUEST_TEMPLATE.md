@@ -1,4 +1,3 @@
-
 # Description
 
 Please include a summary of the change and which issue is fixed. Please also include relevant motivation and context. List any dependencies that are required for this change.
@@ -6,11 +5,11 @@ Please include a summary of the change and which issue is fixed. Please also inc
 ## Behaviour
 ### **Actual**
 
-Do this and that doesn't happens
+Descreva o comportamento ATUAL (antes da mudança). Exemplo: "O servidor não carregava scripts na ordem correta"
 
 ### **Expected**
 
-Do this and that happens
+Descreva o comportamento ESPERADO (depois da mudança). Exemplo: "Scripts carregam na ordem: core.lua → libs → scripts"
 
 ### Fixes #issuenumber
 
@@ -45,3 +44,21 @@ Please describe the tests that you ran to verify your changes. Provide instructi
   - [ ] I have made corresponding changes to the documentation
   - [ ] My changes generate no new warnings
   - [ ] I have added tests that prove my fix is effective or that my feature works
+
+---
+
+<!-- 
+INSTRUÇÕES PARA LLM AO PREENCHER ESTE TEMPLATE:
+
+1. Description: Resuma a mudança em 1-2 frases (não use placeholders)
+2. Behaviour:
+   - Actual: Descreva o comportamento ANTES da mudança (não deixe como "Do this...")
+   - Expected: Descreva o comportamento DEPOIS da mudança
+3. Type of change: Selecione apenas 1 opção
+4. Checklist: Marque todas que se aplicam
+
+Exemplo de como preencher:
+- Description: "Corrige ordem de carregamento de scripts na inicialização do servidor"
+- Actual: "Scripts carregavam sem seguir ordem específica, causando erros de dependência"
+- Expected: "Scripts agora carregam na ordem: core.lua primeiro, depois libs, depois scripts"
+-->

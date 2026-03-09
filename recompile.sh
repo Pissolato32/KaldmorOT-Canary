@@ -14,6 +14,11 @@ info() {
 	echo -e "\033[1;34m[INFO]\033[0m $1"
 }
 
+# Function to print error messages
+error() {
+	echo -e "\033[1;31m[ERROR]\033[0m $1"
+}
+
 # Function to check if a command is available
 check_command() {
 	if ! command -v "$1" >/dev/null; then
@@ -31,26 +36,46 @@ check_architecture() {
 	fi
 }
 
+# Function to check if sccache is available
+check_sccache() {
+	if command -v sccache >/dev/null; then
+		SCCACHE_AVAILABLE=1
+		info "sccache detected and will be used to speed up the build."
+		# Ensure sccache is started
+		sccache --start-server >/dev/null 2>&1 || true
+	else
+		SCCACHE_AVAILABLE=0
+	fi
+}
+
 # Function to configure Canary
 setup_canary() {
-	if [ -d "build" ]; then
-		cd build
-	else
-		mkdir -p build && cd build
-		info "Canary has already been configured, skipping this step..."
+	# Check if cmake has already been configured for the real binary directory
+	if [ -f "build/${BUILD_TYPE}/CMakeCache.txt" ]; then
+		info "Canary has already been configured, skipping configuration step..."
+		return 0 # skip cmake configure
 	fi
+	info "Configuring Canary..."
+	return 1 # needs configuration
 }
 
 # Function to build Canary
 build_canary() {
-	info "Configuring Canary..."
-	if [[ $ARCHITECTUREVALUE == 1 ]]; then
-		export VCPKG_FORCE_SYSTEM_BINARIES=1
+	if ! setup_canary; then
+		if [[ $ARCHITECTUREVALUE == 1 ]]; then
+			export VCPKG_FORCE_SYSTEM_BINARIES=1
+		fi
+
+		local cmake_args=("-DCMAKE_TOOLCHAIN_FILE=$VCPKG_PATH" "." "--preset" "$BUILD_TYPE")
+		if [[ $SCCACHE_AVAILABLE == 1 ]]; then
+			cmake_args+=("-DOPTIONS_ENABLE_SCCACHE=ON")
+		fi
+
+		# Configure from root using . as source dir
+		cmake "${cmake_args[@]}" || {
+			return 1
+		}
 	fi
-	cmake -DCMAKE_TOOLCHAIN_FILE="$VCPKG_PATH" .. --preset "$BUILD_TYPE" >cmake_log.txt 2>&1 || {
-		cat cmake_log.txt
-		return 1
-	}
 
 	info "Starting the build process..."
 
@@ -62,19 +87,28 @@ build_canary() {
 	local temp_file="temp_global_beats.txt"
 	echo "0" >$temp_file
 
-	cmake --build "$BUILD_TYPE" 2>&1 > >(while IFS= read -r line; do
+	# Build using preset from root
+	cmake --build --preset "$BUILD_TYPE" --verbose 2>&1 | while IFS= read -r line; do
 		echo "$line" >>build_log.txt
 		if [[ $line =~ ^\[([0-9]+)/([0-9]+)\].* ]]; then
 			current_step=${BASH_REMATCH[1]}
 			total_steps=${BASH_REMATCH[2]}
 			progress=$((current_step * 100 / total_steps))
-			printf "\r\033[1;32m[INFO]\033[0m Progress build: [%3d%%]" $progress
+			printf "\r\033[1;32m[INFO]\033[0m Progress build: [%3d%%] %s" $progress "${line#*] }"
 			echo "1" >$temp_file
+		else
+			echo "$line"
 		fi
-	done) || build_status=1
+	done || build_status=1
 
 	global_beats=$(cat $temp_file)
 	rm $temp_file
+
+	if [[ $SCCACHE_AVAILABLE == 1 ]]; then
+		echo
+		info "sccache build statistics:"
+		sccache --show-stats
+	fi
 
 	if [[ $build_status -eq 0 ]]; then
 		if [[ $global_beats == 1 ]]; then
@@ -88,24 +122,46 @@ build_canary() {
 	fi
 }
 
-# Function to move the generated executable
 move_executable() {
 	local executable_name="canary"
-	cd ..
-	if [ -e "$executable_name" ]; then
-		info "Saving old build"
-		mv ./"$executable_name" ./"$executable_name".old
+	
+	# Search for the executable in various possible build locations
+	local search_paths=(
+		"./build/$BUILD_TYPE/bin/$executable_name"
+		"./build/$BUILD_TYPE/$executable_name"
+	)
+
+	local found_path=""
+	for path in "${search_paths[@]}"; do
+		if [ -f "$path" ]; then
+			found_path="$path"
+			break
+		fi
+	done
+
+	if [ -n "$found_path" ]; then
+		if [ -f "./$executable_name" ]; then
+			info "Saving old build"
+			mv "./$executable_name" "./$executable_name.old"
+		fi
+		info "Moving generated executable from $found_path to ./"
+		cp "$found_path" ./"$executable_name"
+		info "Build completed successfully!"
+	elif [ -f "./$executable_name" ]; then
+		# It's already in the root (maybe cmake placed it there directly)
+		info "Executable found in root directory."
+		info "Build completed successfully!"
+	else
+		error "Could not find the generated executable '$executable_name' in any known location."
+		exit 1
 	fi
-	info "Moving the generated executable to the canary folder directory..."
-	cp ./build/linux-release/bin/"$executable_name" ./"$executable_name"
-	info "Build completed successfully!"
 }
 
 # Main function
 main() {
 	check_command "cmake"
 	check_architecture
-	setup_canary
+	check_sccache
 
 	if build_canary; then
 		move_executable

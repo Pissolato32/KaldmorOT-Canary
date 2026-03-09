@@ -11,6 +11,13 @@
 *.userosscache
 *.sln.docstates
 
+# Security sensitive files
+key.pem
+*.pem
+docker/.env
+docker/*.env
+!docker/.env.dist
+
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs
 
@@ -391,6 +398,9 @@ sftp-config.json
 # Binaries
 canary
 canary.old
+
+# Kilo Code
+.kilocode
 
 # VCPKG
 vcpkg_installed

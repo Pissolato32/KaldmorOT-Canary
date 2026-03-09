@@ -1,5 +1,6 @@
 ---
 name: MySQL Schema Check
+
 on:
   workflow_dispatch:
   pull_request:
@@ -25,19 +26,28 @@ jobs:
           MYSQL_USER: canary
           MYSQL_PASSWORD: canary
         ports:
-          - 3306/tcp
+          - 3306:3306/tcp
         options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3
-    strategy:
-      fail-fast: false
     name: Check
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-      - name: 📌 MySQL Start & init & show db
+
+      - name: Set MySQL port
+        run: echo "MYSQL_PORT=3306" >> $GITHUB_ENV
+
+      - name: Wait for MySQL to be ready
         run: |
-          sudo /etc/init.d/mysql start
-          mysql -e 'CREATE DATABASE canary;' -uroot -proot
-          mysql -e "SHOW DATABASES" -uroot -proot
+          for i in {1..30}; do
+            if mysqladmin ping -h 127.0.0.1 -P $MYSQL_PORT -uroot -proot --silent 2>/dev/null; then
+              echo "MySQL is ready"
+              exit 0
+            fi
+            echo "Waiting for MySQL... ($i/30)"
+            sleep 2
+          done
+          echo "MySQL did not become ready in time"
+          exit 1
+
       - name: Import Canary Schema
-        run: |
-          mysql -uroot -proot canary < schema.sql -v
+        run: mysql -h 127.0.0.1 -P $MYSQL_PORT -uroot -proot canary < schema.sql -v

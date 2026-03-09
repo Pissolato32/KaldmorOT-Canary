@@ -34,6 +34,25 @@ jobs:
         languages: ${{ matrix.language }}
         queries: security-and-quality
 
+    - name: Detect C++ compiler version
+      id: compiler
+      run: |
+        if command -v g++-13 &> /dev/null; then
+          echo "version=13" >> $GITHUB_OUTPUT
+        elif command -v g++-12 &> /dev/null; then
+          echo "version=12" >> $GITHUB_OUTPUT
+        else
+          echo "version=0" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y cmake ninja-build
+        if [ "${{ steps.compiler.outputs.version }}" != "0" ]; then
+          sudo apt-get install -y g++-${{ steps.compiler.outputs.version }} gcc-${{ steps.compiler.outputs.version }}
+        fi
+
     - name: vcpkg cache
       uses: actions/cache@v4
       with:
@@ -52,16 +71,16 @@ jobs:
         fi
         echo "VCPKG_ROOT=$HOME/vcpkg" >> $GITHUB_ENV
 
-    - name: Install dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y cmake ninja-build g++-13
-
     - name: Configure CMake
       run: |
-        cmake --preset linux-release-enabled-tests -DCMAKE_CXX_COMPILER=g++-13 -DCMAKE_C_COMPILER=gcc-13
+        CMAKE_ARGS="--preset linux-release-enabled-tests"
+        if [ "${{ steps.compiler.outputs.version }}" != "0" ]; then
+          CMAKE_ARGS="$CMAKE_ARGS -DCMAKE_CXX_COMPILER=g++-${{ steps.compiler.outputs.version }} -DCMAKE_C_COMPILER=gcc-${{ steps.compiler.outputs.version }}"
+        fi
+        cmake $CMAKE_ARGS
 
     - name: Build
+      timeout-minutes: 60
       run: |
         cmake --build build/linux-release-enabled-tests -j $(nproc)
 

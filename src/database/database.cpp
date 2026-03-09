@@ -215,6 +215,22 @@ bool Database::isRecoverableError(unsigned int error) {
 	return error == CR_SERVER_LOST || error == CR_SERVER_GONE_ERROR || error == CR_CONN_HOST_ERROR || error == 1053 /*ER_SERVER_SHUTDOWN*/ || error == CR_CONNECTION_ERROR;
 }
 
+bool Database::executeQuery(std::string_view query) {
+	if (!handle) {
+		g_logger().error("Database not initialized!");
+		return false;
+	}
+
+	g_logger().trace("Executing Query: {}", query);
+
+	metrics::lock_latency measureLock("database");
+	std::scoped_lock lock { databaseLock };
+	measureLock.stop();
+
+	metrics::query_latency measure(query.substr(0, 50));
+	return retryQuery(query, 10);
+}
+
 bool Database::retryQuery(std::string_view query, int retries) {
 	while (retries > 0 && mysql_query(handle, query.data()) != 0) {
 		g_logger().error("Query: {}", query.substr(0, 256));
@@ -263,9 +279,9 @@ bool Database::executeQuery(const std::string &query, const std::vector<QueryPar
 
 	struct ParameterData {
 		std::string str;
-		long long i64;
-		long i32;
-		signed char b;
+		int64_t i64;
+		int32_t i32;
+		my_bool b;
 	};
 	std::vector<ParameterData> storage(count);
 
@@ -388,9 +404,9 @@ DBResult_ptr Database::storeQuery(const std::string &query, const std::vector<Qu
 
 	struct ParameterData {
 		std::string str;
-		long long i64;
-		long i32;
-		signed char b;
+		int64_t i64;
+		int32_t i32;
+		my_bool b;
 	};
 	std::vector<ParameterData> storage(count);
 
@@ -441,16 +457,21 @@ DBResult_ptr Database::storeQuery(const std::string &query, const std::vector<Qu
 		return nullptr;
 	}
 
-	MYSQL_RES* res = mysql_stmt_get_result(stmt);
+	MYSQL_RES* res = mysql_stmt_result_metadata(stmt);
 	if (res != nullptr) {
+		if (mysql_stmt_store_result(stmt) != 0) {
+			g_logger().error("mysql_stmt_store_result failed: {}", mysql_stmt_error(stmt));
+			mysql_free_result(res);
+			mysql_stmt_close(stmt);
+			return nullptr;
+		}
+
 		DBResult_ptr result = std::make_shared<DBResult>(res, stmt);
 		if (!result->hasNext()) {
 			return nullptr;
 		}
 		return result;
 	}
-
-	mysql_stmt_close(stmt);
 
 	mysql_stmt_close(stmt);
 	return nullptr;
@@ -484,9 +505,8 @@ std::string Database::escapeBlob(const char* s, uint32_t length) const {
 	return escaped;
 }
 
-DBResult::DBResult(MYSQL_RES* res) {
-	handle = res;
-
+DBResult::DBResult(MYSQL_RES* res) :
+	handle(res) {
 	int num_fields = mysql_num_fields(handle);
 
 	const MYSQL_FIELD* fields = mysql_fetch_fields(handle);
@@ -497,16 +517,39 @@ DBResult::DBResult(MYSQL_RES* res) {
 }
 
 DBResult::DBResult(MYSQL_RES* res, MYSQL_STMT* stmt) :
-	stmtHandle(stmt) {
-	handle = res;
-
+	handle(res), stmtHandle(stmt) {
 	int num_fields = mysql_num_fields(handle);
+
+	stmtBinds.resize(num_fields);
+	memset(stmtBinds.data(), 0, sizeof(MYSQL_BIND) * num_fields);
+	stmtColumns.resize(num_fields);
+	rowBuffer.resize(num_fields);
 
 	const MYSQL_FIELD* fields = mysql_fetch_fields(handle);
 	for (size_t i = 0; i < num_fields; i++) {
 		listNames[fields[i].name] = i;
+
+		auto &col = stmtColumns[i];
+		// Allocate buffer based on field length, with a minimum and maximum
+		unsigned long bufferSize = std::max<unsigned long>(fields[i].length + 1, 1024);
+		if (fields[i].type == MYSQL_TYPE_BLOB || fields[i].type == MYSQL_TYPE_LONG_BLOB) {
+			bufferSize = std::max<unsigned long>(bufferSize, 65536);
+		}
+		col.buffer.resize(bufferSize);
+
+		stmtBinds[i].buffer_type = MYSQL_TYPE_STRING; // Bind everything as string for simplicity with existing code
+		stmtBinds[i].buffer = col.buffer.data();
+		stmtBinds[i].buffer_length = col.buffer.size() - 1;
+		stmtBinds[i].length = &col.length;
+		stmtBinds[i].is_null = &col.isNull;
+		stmtBinds[i].error = &col.error;
 	}
-	row = mysql_fetch_row(handle);
+
+	if (mysql_stmt_bind_result(stmtHandle, stmtBinds.data()) != 0) {
+		g_logger().error("mysql_stmt_bind_result failed: {}", mysql_stmt_error(stmtHandle));
+	}
+
+	next();
 }
 
 DBResult::~DBResult() {
@@ -543,7 +586,11 @@ const char* DBResult::getStream(const std::string &s, unsigned long &size) const
 		return nullptr;
 	}
 
-	size = mysql_fetch_lengths(handle)[it->second];
+	if (stmtHandle) {
+		size = stmtColumns[it->second].length;
+	} else {
+		size = mysql_fetch_lengths(handle)[it->second];
+	}
 	return row[it->second];
 }
 
@@ -576,6 +623,24 @@ bool DBResult::hasNext() const {
 }
 
 bool DBResult::next() {
+	if (stmtHandle) {
+		int status = mysql_stmt_fetch(stmtHandle);
+		if (status == 0 || status == MYSQL_DATA_TRUNCATED) {
+			for (size_t i = 0; i < stmtColumns.size(); ++i) {
+				if (stmtColumns[i].isNull) {
+					rowBuffer[i] = nullptr;
+				} else {
+					stmtColumns[i].buffer[stmtColumns[i].length] = '\0';
+					rowBuffer[i] = stmtColumns[i].buffer.data();
+				}
+			}
+			row = rowBuffer.data();
+			return true;
+		}
+		row = nullptr;
+		return false;
+	}
+
 	if (!handle) {
 		g_logger().error("Database not initialized!");
 		return false;

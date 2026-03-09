@@ -200,6 +200,16 @@ private:
 	MYSQL_STMT* stmtHandle = nullptr;
 	MYSQL_ROW row = nullptr;
 
+	std::vector<MYSQL_BIND> stmtBinds;
+	struct StmtColumn {
+		std::vector<char> buffer;
+		unsigned long length;
+		my_bool isNull;
+		my_bool error;
+	};
+	std::vector<StmtColumn> stmtColumns;
+	std::vector<char*> rowBuffer;
+
 	std::map<std::string_view, size_t> listNames;
 
 	friend class Database;

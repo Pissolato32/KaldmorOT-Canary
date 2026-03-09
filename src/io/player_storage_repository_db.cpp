@@ -47,7 +47,7 @@ bool DbPlayerStorageRepository::deleteKeys(uint32_t id, const std::vector<uint32
 		}
 		placeholders += '?';
 	}
-	std::vector<DatabaseVariant> params;
+	std::vector<QueryParamVariant> params;
 	params.reserve(keys.size() + 1);
 	params.emplace_back(id);
 	for (auto k : keys) {

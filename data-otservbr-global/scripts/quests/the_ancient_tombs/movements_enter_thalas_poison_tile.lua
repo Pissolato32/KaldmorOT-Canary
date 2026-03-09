@@ -23,3 +23,4 @@ end
 enterThalasPoisonTile:type("stepin")
 enterThalasPoisonTile:uid(50136)
 enterThalasPoisonTile:register()
+

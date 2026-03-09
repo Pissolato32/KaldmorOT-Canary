@@ -25,3 +25,4 @@ end
 movements_enter_diprath_room:type("stepin")
 movements_enter_diprath_room:uid(40083)
 movements_enter_diprath_room:register()
+

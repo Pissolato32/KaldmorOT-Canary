@@ -51,7 +51,7 @@ bool IOBan::isAccountBanned(uint32_t accountId, BanInfo &banInfo) {
 
 	const DBResult_ptr result = db.storeQuery(
 		"SELECT `reason`, `expires_at`, `banned_at`, `banned_by`, (SELECT `name` FROM `players` WHERE `id` = `banned_by`) AS `name` FROM `account_bans` WHERE `account_id` = ?",
-		{ accountId }
+		std::vector<QueryParamVariant>{ accountId }
 	);
 	if (!result) {
 		return false;
@@ -60,15 +60,19 @@ bool IOBan::isAccountBanned(uint32_t accountId, BanInfo &banInfo) {
 	const auto expiresAt = result->getNumber<int64_t>("expires_at");
 	if (expiresAt != 0 && time(nullptr) > expiresAt) {
 		// Move the ban to history if it has expired
-		g_databaseTasks().execute(
-			"INSERT INTO `account_ban_history` (`account_id`, `reason`, `banned_at`, `expired_at`, `banned_by`) VALUES (?, ?, ?, ?, ?)",
-			{ accountId, result->getString("reason"), result->getNumber<time_t>("banned_at"), expiresAt, result->getNumber<uint32_t>("banned_by") }
-		);
+		g_databaseTasks().execute([accountId, reason = result->getString("reason"), bannedAt = result->getNumber<time_t>("banned_at"), expiresAt, bannedBy = result->getNumber<uint32_t>("banned_by")]() {
+			Database::getInstance().executeQuery(
+				"INSERT INTO `account_ban_history` (`account_id`, `reason`, `banned_at`, `expired_at`, `banned_by`) VALUES (?, ?, ?, ?, ?)",
+				std::vector<QueryParamVariant>{ accountId, reason, bannedAt, expiresAt, bannedBy }
+			);
+		});
 
-		g_databaseTasks().execute(
-			"DELETE FROM `account_bans` WHERE `account_id` = ?",
-			{ accountId }
-		);
+		g_databaseTasks().execute([accountId]() {
+			Database::getInstance().executeQuery(
+				"DELETE FROM `account_bans` WHERE `account_id` = ?",
+				std::vector<QueryParamVariant>{ accountId }
+			);
+		});
 		return false;
 	}
 
@@ -87,7 +91,7 @@ bool IOBan::isIpBanned(uint32_t clientIP, BanInfo &banInfo) {
 
 	const DBResult_ptr result = db.storeQuery(
 		"SELECT `reason`, `expires_at`, (SELECT `name` FROM `players` WHERE `id` = `banned_by`) AS `name` FROM `ip_bans` WHERE `ip` = ?",
-		{ clientIP }
+		std::vector<QueryParamVariant>{ clientIP }
 	);
 	if (!result) {
 		return false;
@@ -95,10 +99,12 @@ bool IOBan::isIpBanned(uint32_t clientIP, BanInfo &banInfo) {
 
 	const auto expiresAt = result->getNumber<int64_t>("expires_at");
 	if (expiresAt != 0 && time(nullptr) > expiresAt) {
-		g_databaseTasks().execute(
-			"DELETE FROM `ip_bans` WHERE `ip` = ?",
-			{ clientIP }
-		);
+		g_databaseTasks().execute([clientIP]() {
+			Database::getInstance().executeQuery(
+				"DELETE FROM `ip_bans` WHERE `ip` = ?",
+				std::vector<QueryParamVariant>{ clientIP }
+			);
+		});
 		return false;
 	}
 
@@ -111,6 +117,6 @@ bool IOBan::isIpBanned(uint32_t clientIP, BanInfo &banInfo) {
 bool IOBan::isPlayerNamelocked(uint32_t playerId) {
 	return Database::getInstance().storeQuery(
 		"SELECT 1 FROM `player_namelocks` WHERE `player_id` = ?",
-		{ playerId }
+		std::vector<QueryParamVariant>{ playerId }
 	).get() != nullptr;
 }

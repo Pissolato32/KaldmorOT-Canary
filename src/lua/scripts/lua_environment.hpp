@@ -62,7 +62,7 @@ private:
 	phmap::flat_hash_map<LuaScriptInterface*, std::vector<uint32_t>> areaIdMap;
 	uint32_t lastAreaId = 0;
 
-	LuaScriptInterface* testInterface = nullptr;
+	std::unique_ptr<LuaScriptInterface> testInterface;
 
 	friend class LuaScriptInterface;
 	friend class GlobalFunctions;
