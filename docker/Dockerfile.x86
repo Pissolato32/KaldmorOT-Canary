@@ -24,7 +24,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
 
 WORKDIR /opt
 COPY vcpkg.json /opt
-RUN vcpkgCommitId=$(grep '.builtin-baseline' vcpkg.json | awk -F: '{print $2}' | tr -d '," ') \
+RUN vcpkgCommitId=$(grep '.builtin-baseline' vcpkg.json | awk -F: '{print $2}' | tr -d '," \r') \
 	&& echo "vcpkg commit ID: $vcpkgCommitId" \
 	&& git clone https://github.com/Microsoft/vcpkg.git \
 	&& cd vcpkg \
