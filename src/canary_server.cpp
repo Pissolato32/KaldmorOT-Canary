@@ -373,9 +373,14 @@ void CanaryServer::loadModules() {
 		g_luaEnvironment().initState();
 	}
 
-	logger.info("Loading modules and scripts...");
-
 	auto coreFolder = g_configManager().getString(CORE_DIRECTORY);
+
+	// Load core.lua first (contains global constants like VOCATION, Storage, etc.)
+	if (g_luaEnvironment().loadFile(coreFolder + "/core.lua", "core.lua") != 0) {
+		throw FailedToInitializeCanary("Cannot load core.lua");
+	}
+
+	logger.info("Loading modules and scripts...");
 	// Load appearances.dat first
 	modulesLoadHelper((g_game().loadAppearanceProtobuf(coreFolder + "/items/appearances.dat") == ERROR_NONE), "appearances.dat");
 
@@ -390,6 +395,11 @@ void CanaryServer::loadModules() {
 
 	auto datapackFolder = g_configManager().getString(DATA_DIRECTORY);
 	logger.debug("Loading core scripts on folder: {}/", coreFolder);
+
+	// Load libraries first (order is important for overlay logic)
+	modulesLoadHelper(g_scripts().loadScripts(datapackFolder + "/scripts/lib", true, false, true), datapackFolder + "/scripts/libs");
+	modulesLoadHelper(g_scripts().loadScripts(coreFolder + "/scripts/lib", true, false, false), coreFolder + "/scripts/libs");
+
 	// Load scripts from dataPack and data
 	modulesLoadHelper(g_scripts().loadScripts(datapackFolder + "/scripts", false, false, true), "Loading scripts from datapak");
 	modulesLoadHelper(g_scripts().loadScripts(coreFolder + "/scripts", false, false, false), "Loading scripts from core");
@@ -399,10 +409,7 @@ void CanaryServer::loadModules() {
 	modulesLoadHelper(g_events().loadFromXml(), "events/events.xml");
 	modulesLoadHelper(g_modules().loadFromXml(), "modules/modules.xml");
 
-	logger.debug("Loading datapack scripts on folder: {}/", datapackFolder);
-	modulesLoadHelper(g_scripts().loadScripts(datapackFolder + "/scripts/lib", true, false), datapackFolder + "/scripts/libs");
-	// Load scripts
-	modulesLoadHelper(g_scripts().loadScripts(datapackFolder + "/scripts", false, false), datapackFolder + "/scripts");
+	logger.debug("Loading datapack monsters on folder: {}/", datapackFolder);
 	// Load monsters
 	modulesLoadHelper(g_scripts().loadScripts(datapackFolder + "/monster", false, false), datapackFolder + "/monster");
 	modulesLoadHelper((g_npcs().load(false, true)), "npc");

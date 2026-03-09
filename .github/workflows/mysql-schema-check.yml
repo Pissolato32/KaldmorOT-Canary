@@ -28,18 +28,18 @@ jobs:
         ports:
           - 3306/tcp
         options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3
-    strategy:
-      fail-fast: false
     name: Check
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Set MySQL port
+        run: echo "MYSQL_PORT=${{ job.services.mysql.ports['3306'] }}" >> $GITHUB_ENV
+
       - name: Wait for MySQL to be ready
         run: |
-          # Wait for the service to be ready
           for i in {1..30}; do
-            if mysqladmin ping -h 127.0.0.1 -P ${{ job.services.mysql.ports['3306'] }} -uroot -proot --silent 2>/dev/null; then
+            if mysqladmin ping -h 127.0.0.1 -P ${{ env.MYSQL_PORT }} -uroot -proot --silent 2>/dev/null; then
               echo "MySQL is ready"
               exit 0
             fi
@@ -50,5 +50,4 @@ jobs:
           exit 1
 
       - name: Import Canary Schema
-        run: |
-          mysql -h 127.0.0.1 -P ${{ job.services.mysql.ports['3306'] }} -uroot -proot canary < schema.sql -v
+        run: mysql -h 127.0.0.1 -P ${{ env.MYSQL_PORT }} -uroot -proot canary < schema.sql -v

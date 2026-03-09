@@ -74,3 +74,4 @@ for index, value in pairs(config) do
 end
 
 tombTeleport:register()
+
