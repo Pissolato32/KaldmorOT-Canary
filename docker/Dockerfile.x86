@@ -9,7 +9,7 @@ ENV TZ=Etc/UTC
 ARG VCPKG_FEED_URL
 ARG VCPKG_FEED_USERNAME
 ARG VCPKG_BINARY_SOURCES
-ARG GITHUB_TOKEN
+ARG GITHUB_TOKEN=
 ENV VCPKG_BINARY_SOURCES=${VCPKG_BINARY_SOURCES}
 
 RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
@@ -41,8 +41,8 @@ RUN --mount=type=cache,target=/opt/vcpkg/downloads \
 	--mount=type=cache,target=/opt/vcpkg/packages \
 	--mount=type=cache,target=/root/.cache/vcpkg \
 	/bin/bash -euo pipefail -c \
-	'if [ -n "$GITHUB_TOKEN" ]; then \
-	NUGET_AUTH_TOKEN=$GITHUB_TOKEN; \
+	'TOKEN=${GITHUB_TOKEN:-}; if [ -n "$TOKEN" ]; then \
+	NUGET_AUTH_TOKEN=$TOKEN; \
 	NUGET_CONFIG=/tmp/nuget.config; \
 	printf "%s\n" \
 	"<?xml version=\"1.0\" encoding=\"utf-8\"?>" \
