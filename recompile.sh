@@ -33,24 +33,27 @@ check_architecture() {
 
 # Function to configure Canary
 setup_canary() {
-	if [ -d "build" ]; then
-		cd build
-	else
-		mkdir -p build && cd build
-		info "Canary has already been configured, skipping this step..."
+	# Check if cmake has already been configured for the real binary directory
+	if [ -f "build/${BUILD_TYPE}/CMakeCache.txt" ]; then
+		info "Canary has already been configured, skipping configuration step..."
+		return 0 # skip cmake configure
 	fi
+	info "Configuring Canary..."
+	return 1 # needs configuration
 }
 
 # Function to build Canary
 build_canary() {
-	info "Configuring Canary..."
-	if [[ $ARCHITECTUREVALUE == 1 ]]; then
-		export VCPKG_FORCE_SYSTEM_BINARIES=1
+	if ! setup_canary; then
+		if [[ $ARCHITECTUREVALUE == 1 ]]; then
+			export VCPKG_FORCE_SYSTEM_BINARIES=1
+		fi
+		# Configure from root using . as source dir
+		cmake -DCMAKE_TOOLCHAIN_FILE="$VCPKG_PATH" . --preset "$BUILD_TYPE" >cmake_log.txt 2>&1 || {
+			cat cmake_log.txt
+			return 1
+		}
 	fi
-	cmake -DCMAKE_TOOLCHAIN_FILE="$VCPKG_PATH" .. --preset "$BUILD_TYPE" >cmake_log.txt 2>&1 || {
-		cat cmake_log.txt
-		return 1
-	}
 
 	info "Starting the build process..."
 
@@ -62,7 +65,8 @@ build_canary() {
 	local temp_file="temp_global_beats.txt"
 	echo "0" >$temp_file
 
-	cmake --build "$BUILD_TYPE" 2>&1 > >(while IFS= read -r line; do
+	# Build using preset from root
+	cmake --build --preset "$BUILD_TYPE" 2>&1 > >(while IFS= read -r line; do
 		echo "$line" >>build_log.txt
 		if [[ $line =~ ^\[([0-9]+)/([0-9]+)\].* ]]; then
 			current_step=${BASH_REMATCH[1]}
@@ -91,13 +95,14 @@ build_canary() {
 # Function to move the generated executable
 move_executable() {
 	local executable_name="canary"
-	cd ..
+	# No need to cd .. as we stay in root
 	if [ -e "$executable_name" ]; then
 		info "Saving old build"
 		mv ./"$executable_name" ./"$executable_name".old
 	fi
 	info "Moving the generated executable to the canary folder directory..."
-	cp ./build/linux-release/bin/"$executable_name" ./"$executable_name"
+	# Path is now relative to root: build/{preset}/bin/canary
+	cp ./build/"$BUILD_TYPE"/bin/"$executable_name" ./"$executable_name"
 	info "Build completed successfully!"
 }
 
