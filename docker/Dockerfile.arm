@@ -16,7 +16,7 @@ RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
 	apt-get update && apt-get install -y --no-install-recommends cmake git \
 	unzip build-essential ca-certificates curl zip unzip tar \
 	pkg-config ninja-build autoconf automake libtool libluajit-5.1-dev libluajit-5.1-common \
-	python3 mono-complete tzdata sccache \
+	linux-libc-dev python3 mono-complete tzdata sccache \
 	&& ln -snf "/usr/share/zoneinfo/${TZ}" /etc/localtime \
 	&& echo "${TZ}" > /etc/timezone \
 	&& apt-get clean \
