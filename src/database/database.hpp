@@ -204,8 +204,8 @@ private:
 	struct StmtColumn {
 		std::vector<char> buffer;
 		unsigned long length;
-		bool isNull;
-		bool error;
+		char isNull;
+		char error;
 	};
 	std::vector<StmtColumn> stmtColumns;
 	std::vector<char*> rowBuffer;
