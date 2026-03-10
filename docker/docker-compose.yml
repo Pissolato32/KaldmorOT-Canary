@@ -13,7 +13,7 @@ services:
       - 'db-volume:/var/lib/mysql'
       - ../schema.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
-      test: [ "CMD", "healthcheck.sh", "--connect" ]
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot" ]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -60,6 +60,8 @@ services:
     depends_on:
       database:
         condition: service_healthy
+      server:
+        condition: service_started
 
   phpmyadmin:
     image: phpmyadmin:latest
