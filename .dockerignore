@@ -16,20 +16,21 @@ docker/build.log
 vcproj
 
 # Testes (executados separadamente)
-tests
+tests/
 
 # Documentação
-docs
-plans
+docs/
+plans/
 
 # Métricas
-metrics
+metrics/
 
 # Análise de código
 sonar-project.properties
 
 # Documentação
 *.md
+!README.md
 Jenkinsfile
 
 # Arquivos ocultos (exceto os necessários)
@@ -48,19 +49,17 @@ client_assertions.txt
 
 # Builds locais
 *.log
-build_*
-
-# CMake e Build
-# (Removido bloqueio de arquivos essenciais para o build)
-
-# vcpkg
-# (Removido bloqueio de vcpkg.json)
+build*/
+cmake-build-*/
+*.o
+*.a
+*.so
+*.dll
+canary
+canary.old
 
 # Certificados e chaves
 key.pem
-
-# Database
-schema.sql
 
 # Scripts de inicialização
 start.sh
@@ -75,3 +74,12 @@ package.json
 # Configuração
 config.lua
 .kilocode
+
+# IDEs
+.vscode/
+.idea/
+*.user
+*.suo
+
+# Dependências
+vcpkg_installed/
