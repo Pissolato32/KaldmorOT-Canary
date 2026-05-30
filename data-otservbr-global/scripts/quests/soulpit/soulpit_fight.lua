@@ -155,9 +155,13 @@ function soulPitAction.onUse(player, item, fromPosition, target, toPosition, isH
 	return true
 end
 
+local registeredAny = false
 for _, itemType in pairs(SoulPit.soulCores) do
 	if itemType:getId() ~= 49164 then -- Exclude soul prism
 		soulPitAction:id(itemType:getId())
+		registeredAny = true
 	end
 end
-soulPitAction:register()
+if registeredAny then
+	soulPitAction:register()
+end
