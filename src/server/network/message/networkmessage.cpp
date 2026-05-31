@@ -121,7 +121,13 @@ Position NetworkMessage::getPosition() {
 
 // Skips count unknown/unused bytes in an incoming message
 void NetworkMessage::skipBytes(int16_t count) {
-	info.position += count;
+	int32_t targetPosition = static_cast<int32_t>(info.position) + count;
+	if (targetPosition < INITIAL_BUFFER_POSITION || targetPosition > static_cast<int32_t>(NETWORKMESSAGE_MAXSIZE)) {
+		g_logger().error("[{}] Attempted to skipBytes to invalid position: {}. Allowed range: [{} - {}]", __FUNCTION__, targetPosition, INITIAL_BUFFER_POSITION, NETWORKMESSAGE_MAXSIZE);
+		info.overrun = true;
+		return;
+	}
+	info.position = static_cast<MsgSize_t>(targetPosition);
 }
 
 void NetworkMessage::addString(const std::string &value, const std::source_location &location /*= std::source_location::current()*/, const std::string &function /* = ""*/) {
@@ -285,7 +291,10 @@ bool NetworkMessage::canAdd(size_t size) const {
 }
 
 bool NetworkMessage::canRead(int32_t size) const {
-	return size <= (info.length - (info.position - INITIAL_BUFFER_POSITION));
+	if (size < 0) {
+		return false;
+	}
+	return (static_cast<uint32_t>(info.position) + static_cast<uint32_t>(size)) <= (static_cast<uint32_t>(INITIAL_BUFFER_POSITION) + static_cast<uint32_t>(info.length));
 }
 
 void NetworkMessage::append(const NetworkMessage &other) {

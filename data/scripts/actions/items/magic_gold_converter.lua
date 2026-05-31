@@ -14,7 +14,9 @@ local function findAndConvertCoins(player, container, converter)
 	for i = 0, container:getSize() - 1 do
 		local item = container:getItem(i)
 		if item:isContainer() then
-			findAndConvertCoins(player, Container(item.uid), converter)
+			if findAndConvertCoins(player, Container(item.uid), converter) then
+				return true
+			end
 		else
 			for fromId, toId in pairs(data.coins) do
 				if item:getId() == fromId and item:getCount() == 100 then
