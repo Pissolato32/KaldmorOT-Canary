@@ -11263,7 +11263,7 @@ void Game::updatePlayersOnline() const {
 			g_database().executeQuery(cleanupQuery.str());
 		}
 
-		return changesMade;
+		return true;
 	};
 
 	const bool success = DBTransaction::executeWithinTransaction(updateOperation);
