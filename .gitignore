@@ -421,3 +421,47 @@ compile_commands.json
 #Development
 docker/Dockerfile.dev
 docker/DOCKER.md
+# ============================================
+# PRODUÇÃO - Arquivos necessários
+# ============================================
+# Estes arquivos são NECESSÁRIOS para produção:
+# - src/, cmake/, CMakeLists.txt, vcpkg.json
+# - data/, data-otservbr-global/, data/XML/
+# - config.lua.dist, schema.sql
+# - docker/
+
+# ============================================
+# DESENVOLVIMENTO ONLY - Ignorar em produção
+# ============================================
+
+# CI/CD (só desenvolvimento)
+.github/
+Jenkinsfile
+
+# Documentação
+docs/
+plans/
+*.md
+!README.md  # Manter README
+
+# Testes
+tests/
+
+# Build artifacts
+build*/
+cmake-build-*/
+*.o
+*.a
+*.so
+*.dll
+canary
+canary.old
+
+# Configurações locais
+.vscode/
+.idea/
+*.user
+*.suo
+
+# Dependências (vcpkg instala automaticamente)
+vcpkg_installed/

@@ -51,6 +51,7 @@ function(
     target_include_directories(
         ${TARGET_NAME}
         PRIVATE ${CMAKE_SOURCE_DIR}/tests/fixture
+                ${CMAKE_SOURCE_DIR}/tests
                 ${CMAKE_SOURCE_DIR}/tests/${DIR}
     )
 
